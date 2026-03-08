@@ -273,6 +273,7 @@ router.post('/webhook', async (req, res) => {
     });
   } catch (error) {
     console.error('Erro no webhook:', error.message);
+    console.error('Detalhes do erro:', JSON.stringify(error.response?.data, null, 2));
     res.status(500).json({
       error: 'Erro ao processar webhook',
       details: error.message,

@@ -3,13 +3,10 @@ const axios = require('axios');
 const AGENT_ENDPOINT = process.env.AGENT_ENDPOINT;
 const AGENT_ACCESS_KEY = process.env.AGENT_ACCESS_KEY;
 
-async function chat(messages, options = {}) {
+async function chat(messages) {
   const response = await axios.post(
     `${AGENT_ENDPOINT}/api/v1/chat/completions`,
-    {
-      messages,
-      stream: options.stream || false,
-    },
+    { messages },
     {
       headers: {
         'Content-Type': 'application/json',

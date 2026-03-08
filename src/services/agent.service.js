@@ -9,9 +9,6 @@ async function chat(messages, options = {}) {
     {
       messages,
       stream: options.stream || false,
-      include_functions_info: options.includeFunctionsInfo || false,
-      include_retrieval_info: options.includeRetrievalInfo || false,
-      include_guardrails_info: options.includeGuardrailsInfo || false,
     },
     {
       headers: {

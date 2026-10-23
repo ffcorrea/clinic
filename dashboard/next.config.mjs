@@ -12,7 +12,7 @@ dotenv.config({ path: path.join(dir, '..', '.env'), quiet: true });
 const nextConfig = {
   // Roda no mesmo App Platform do bot, na rota /painel
   basePath: '/painel',
-  serverExternalPackages: ['pg'],
+  serverExternalPackages: ['mysql2'],
   outputFileTracingRoot: dir,
   turbopack: { root: dir },
 };

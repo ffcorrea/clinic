@@ -1,14 +1,16 @@
-import { Pool } from 'pg';
+import mysql from 'mysql2/promise';
 
 // Reaproveita o pool entre recarregamentos do dev server
-const globalForPg = globalThis;
+const globalForDb = globalThis;
 
+// DATABASE_URL=mysql://usuario:senha@host:porta/banco (o banco gerenciado exige SSL)
 export const pool =
-  globalForPg.pgPool ||
-  new Pool({
-    connectionString: process.env.DATABASE_URL,
+  globalForDb.mysqlPool ||
+  mysql.createPool({
+    uri: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    max: 3,
+    connectionLimit: 3,
+    timezone: 'Z',
   });
 
-if (process.env.NODE_ENV !== 'production') globalForPg.pgPool = pool;
+if (process.env.NODE_ENV !== 'production') globalForDb.mysqlPool = pool;

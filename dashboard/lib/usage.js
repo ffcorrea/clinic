@@ -27,45 +27,56 @@ export function parseFilters(params) {
 }
 
 export async function listClinics() {
-  const { rows } = await pool.query(
-    `SELECT clinic_id AS id, (array_agg(clinic_name ORDER BY created_at DESC))[1] AS name
+  const [rows] = await pool.query(
+    `SELECT clinic_id AS id, MAX(clinic_name) AS name
        FROM usage_events GROUP BY clinic_id ORDER BY name`
   );
   return rows;
 }
 
+// Inicio de cada periodo no horario de Brasilia (created_at e gravado em UTC).
+// A semana comeca na segunda-feira.
+const LOCAL = `CONVERT_TZ(created_at, '+00:00', '${TZ}')`;
+const PERIOD_SQL = {
+  day: `DATE(${LOCAL})`,
+  week: `DATE(${LOCAL}) - INTERVAL WEEKDAY(${LOCAL}) DAY`,
+  month: `DATE_FORMAT(${LOCAL}, '%Y-%m-01')`,
+};
+
+const NUMERIC = ['events', 'messages_in', 'messages_out', 'prompt_tokens', 'completion_tokens', 'cost_usd', 'cost_brl', 'errors'];
+
 // Uma linha por periodo x consultorio. O custo em R$ usa o dolar gravado em cada
 // registro (dolar do dia do atendimento); sem cotacao gravada, usa a atual.
 export async function getUsage({ granularity, from, to, clinic }, currentRate) {
-  const { rows } = await pool.query(
-    `SELECT to_char(date_trunc($1, created_at AT TIME ZONE '${TZ}'), 'YYYY-MM-DD') AS period,
+  const [rows] = await pool.query(
+    `SELECT DATE_FORMAT(${PERIOD_SQL[granularity]}, '%Y-%m-%d') AS period,
             clinic_id,
-            (array_agg(clinic_name ORDER BY created_at DESC))[1] AS clinic_name,
-            count(*)::int                          AS events,
-            coalesce(sum(messages_in), 0)::int     AS messages_in,
-            coalesce(sum(messages_out), 0)::int    AS messages_out,
-            coalesce(sum(prompt_tokens), 0)::bigint     AS prompt_tokens,
-            coalesce(sum(completion_tokens), 0)::bigint AS completion_tokens,
-            coalesce(sum(cost_usd), 0)::float8     AS cost_usd,
-            coalesce(sum(cost_usd * coalesce(usd_brl, $5)), 0)::float8 AS cost_brl,
-            count(*) FILTER (WHERE kind = 'error')::int AS errors
+            MAX(clinic_name)                 AS clinic_name,
+            COUNT(*)                         AS events,
+            COALESCE(SUM(messages_in), 0)    AS messages_in,
+            COALESCE(SUM(messages_out), 0)   AS messages_out,
+            COALESCE(SUM(prompt_tokens), 0)  AS prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+            COALESCE(SUM(cost_usd), 0)       AS cost_usd,
+            COALESCE(SUM(cost_usd * COALESCE(usd_brl, ?)), 0) AS cost_brl,
+            SUM(kind = 'error')              AS errors
        FROM usage_events
-      WHERE created_at >= ($2::date)::timestamp AT TIME ZONE '${TZ}'
-        AND created_at <  ($3::date + 1)::timestamp AT TIME ZONE '${TZ}'
-        AND ($4 = '' OR clinic_id = $4)
-      GROUP BY 1, 2
-      ORDER BY 1 DESC, 3`,
-    [granularity, from, to, clinic, currentRate ?? 0]
+      WHERE created_at >= CONVERT_TZ(CAST(? AS DATETIME), '${TZ}', '+00:00')
+        AND created_at <  CONVERT_TZ(CAST(? AS DATETIME) + INTERVAL 1 DAY, '${TZ}', '+00:00')
+        AND (? = '' OR clinic_id = ?)
+      GROUP BY period, clinic_id
+      ORDER BY period DESC, clinic_name`,
+    [currentRate ?? 0, from, to, clinic, clinic]
   );
 
+  // O mysql2 devolve SUM/DECIMAL como texto
   return rows.map((r) => ({
     ...r,
-    prompt_tokens: Number(r.prompt_tokens),
-    completion_tokens: Number(r.completion_tokens),
+    ...Object.fromEntries(NUMERIC.map((m) => [m, Number(r[m])])),
   }));
 }
 
-const METRICS = ['events', 'messages_in', 'messages_out', 'prompt_tokens', 'completion_tokens', 'cost_usd', 'cost_brl', 'errors'];
+const METRICS = NUMERIC;
 
 export function sumRows(rows) {
   const total = Object.fromEntries(METRICS.map((m) => [m, 0]));

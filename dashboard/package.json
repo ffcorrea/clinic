@@ -9,8 +9,8 @@
   },
   "dependencies": {
     "dotenv": "17.2.3",
+    "mysql2": "3.24.6",
     "next": "16.4.2",
-    "pg": "8.23.1",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   }

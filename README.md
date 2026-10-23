@@ -38,7 +38,7 @@ O painel Next.js em `dashboard/` mostra isso por consultorio, agrupado por dia, 
 
 Variaveis do bot:
 
-- `DATABASE_URL` - Postgres do Supabase (sem ela o registro fica desligado)
+- `DATABASE_URL` - MySQL da DigitalOcean, `mysql://usuario:senha@host:25060/banco` (sem ela o registro fica desligado)
 - `PRICE_INPUT_PER_MTOK` / `PRICE_OUTPUT_PER_MTOK` - preco do modelo em US$ por 1 milhao de tokens (padrao 1 / 5)
 
 Painel (`cd dashboard && npm install && npm run dev`, abre em http://localhost:3001/painel).
@@ -57,5 +57,4 @@ O Express do bot tambem serve o painel em `/painel` (Next.js como custom server,
 Sem o build do painel (ex: `npm run dev` do bot), `/painel` fica desativado; rode o painel a parte com
 `cd dashboard && npm run dev`.
 
-Use a URL do **Session pooler** do Supabase (botao "Connect") como `DATABASE_URL`,
-pois o host `db.<projeto>.supabase.co` so tem IPv6.
+Se o banco tiver "Trusted sources" ativado, adicione o app do bot nele.

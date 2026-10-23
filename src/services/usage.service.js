@@ -1,7 +1,7 @@
 const axios = require('axios');
-const { Pool } = require('pg');
+const mysql = require('mysql2/promise');
 
-// Registra no Postgres (Supabase) o uso de cada atendimento, para o painel em dashboard/.
+// Registra no MySQL (DigitalOcean) o uso de cada atendimento, para o painel em dashboard/.
 // Sem DATABASE_URL o registro fica desligado e o bot funciona normalmente.
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -13,30 +13,30 @@ const PRICE_OUTPUT_PER_MTOK = parseFloat(process.env.PRICE_OUTPUT_PER_MTOK || '5
 const FX_URL = 'https://economia.awesomeapi.com.br/json/last/USD-BRL';
 const FX_CACHE_MS = 60 * 60 * 1000;
 
+// DATABASE_URL=mysql://usuario:senha@host:porta/banco (o banco gerenciado exige SSL)
 const pool = DATABASE_URL
-  ? new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 3 })
+  ? mysql.createPool({ uri: DATABASE_URL, ssl: { rejectUnauthorized: false }, connectionLimit: 3, timezone: 'Z' })
   : null;
 
+// Datas gravadas em UTC; o painel converte para o horario de Brasilia
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS usage_events (
-    id                bigserial PRIMARY KEY,
-    created_at        timestamptz NOT NULL DEFAULT now(),
-    clinic_id         text NOT NULL,
-    clinic_name       text,
-    phone             text,
-    kind              text NOT NULL,           -- reply | error | unsupported_media
-    model             text,
-    messages_in       integer NOT NULL DEFAULT 0,
-    messages_out      integer NOT NULL DEFAULT 0,
-    prompt_tokens     integer NOT NULL DEFAULT 0,
-    completion_tokens integer NOT NULL DEFAULT 0,
-    cost_usd          numeric(12, 6) NOT NULL DEFAULT 0,
-    usd_brl           numeric(10, 4)
-  );
-  CREATE INDEX IF NOT EXISTS usage_events_created_at_idx ON usage_events (created_at);
-  CREATE INDEX IF NOT EXISTS usage_events_clinic_idx ON usage_events (clinic_id, created_at);
-  -- Bloqueia a API publica do Supabase (anon key); a conexao direta do postgres nao e afetada
-  ALTER TABLE usage_events ENABLE ROW LEVEL SECURITY;
+    id                bigint unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    created_at        datetime NOT NULL DEFAULT (UTC_TIMESTAMP()),
+    clinic_id         varchar(100) NOT NULL,
+    clinic_name       varchar(255),
+    phone             varchar(30),
+    kind              varchar(30) NOT NULL COMMENT 'reply | error | unsupported_media',
+    model             varchar(100),
+    messages_in       int NOT NULL DEFAULT 0,
+    messages_out      int NOT NULL DEFAULT 0,
+    prompt_tokens     int NOT NULL DEFAULT 0,
+    completion_tokens int NOT NULL DEFAULT 0,
+    cost_usd          decimal(12, 6) NOT NULL DEFAULT 0,
+    usd_brl           decimal(10, 4),
+    KEY usage_events_created_at_idx (created_at),
+    KEY usage_events_clinic_idx (clinic_id, created_at)
+  )
 `;
 
 const ready = pool
@@ -84,7 +84,7 @@ async function record(clinic, { phone, kind, messagesIn = 0, messagesOut = 0, us
       `INSERT INTO usage_events
         (clinic_id, clinic_name, phone, kind, model, messages_in, messages_out,
          prompt_tokens, completion_tokens, cost_usd, usd_brl)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         clinic.id,
         clinic.name,

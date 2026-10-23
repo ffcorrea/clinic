@@ -121,6 +121,12 @@ export default async function Page({ searchParams }) {
         <div className="fx">
           <span className="muted">Dólar hoje</span>
           <strong>{fx ? `R$ ${rateFmt.format(fx.rate)}` : 'indisponível'}</strong>
+          {fx && (
+            <span className="muted fx-source">
+              {fx.source} ·{' '}
+              {fx.at.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
         </div>
       </header>
 
@@ -171,7 +177,7 @@ export default async function Page({ searchParams }) {
       )}
 
       <p className="muted footnote">
-        R$ calculado com a cotação do dólar no momento de cada atendimento (AwesomeAPI). Semanas começam na segunda-feira; horário de Brasília.
+        R$ calculado com a cotação do dólar no momento de cada atendimento. Semanas começam na segunda-feira; horário de Brasília.
       </p>
     </main>
   );

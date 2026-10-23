@@ -9,8 +9,12 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const PRICE_INPUT_PER_MTOK = parseFloat(process.env.PRICE_INPUT_PER_MTOK || '1');
 const PRICE_OUTPUT_PER_MTOK = parseFloat(process.env.PRICE_OUTPUT_PER_MTOK || '5');
 
-// Cotacao do dolar (AwesomeAPI, sem chave), guardada em cada registro
-const FX_URL = 'https://economia.awesomeapi.com.br/json/last/USD-BRL';
+// Cotacao do dolar, guardada em cada registro. Tenta as fontes em ordem (todas sem chave).
+const FX_SOURCES = [
+  { name: 'AwesomeAPI', url: 'https://economia.awesomeapi.com.br/json/last/USD-BRL', parse: (d) => parseFloat(d?.USDBRL?.bid) },
+  { name: 'Frankfurter', url: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=BRL', parse: (d) => d?.rates?.BRL },
+  { name: 'ExchangeRate-API', url: 'https://open.er-api.com/v6/latest/USD', parse: (d) => d?.rates?.BRL },
+];
 const FX_CACHE_MS = 60 * 60 * 1000;
 
 // DATABASE_URL=mysql://usuario:senha@host:porta/banco (o banco gerenciado exige SSL)
@@ -51,15 +55,21 @@ let fx = { rate: null, fetchedAt: 0 };
 async function getUsdBrl() {
   if (fx.rate && Date.now() - fx.fetchedAt < FX_CACHE_MS) return fx.rate;
 
-  try {
-    const { data } = await axios.get(FX_URL, { timeout: 5000 });
-    const rate = parseFloat(data?.USDBRL?.bid);
-    if (rate > 0) fx = { rate, fetchedAt: Date.now() };
-  } catch (error) {
-    console.error('Erro ao buscar cotacao do dolar:', error.message);
+  for (const source of FX_SOURCES) {
+    try {
+      const { data } = await axios.get(source.url, { timeout: 5000 });
+      const rate = Number(source.parse(data));
+      if (rate > 0) {
+        fx = { rate, fetchedAt: Date.now() };
+        return rate;
+      }
+      throw new Error('resposta sem cotacao');
+    } catch (error) {
+      console.error(`Cotacao do dolar: ${source.name} falhou (${error.message})`);
+    }
   }
 
-  // Se a API falhar, usa a ultima cotacao conhecida (ou null)
+  // Se todas falharem, usa a ultima cotacao conhecida (ou null)
   return fx.rate;
 }
 

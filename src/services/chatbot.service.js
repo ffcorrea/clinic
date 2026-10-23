@@ -13,6 +13,16 @@ const UNSUPPORTED_MEDIA_MESSAGE =
 
 const buffers = new Map();
 
+// Converte o Markdown do agente para a formatacao do WhatsApp
+function toWhatsAppFormat(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '*$1*')
+    .replace(/__(.+?)__/g, '_$1_')
+    .replace(/~~(.+?)~~/g, '~$1~')
+    .replace(/^#{1,6}\s+(.+)$/gm, '*$1*')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '$1: $2');
+}
+
 async function sendBotText(phone, message) {
   const result = await zapiService.sendText(phone, message);
   conversation.markSentByBot(result?.messageId);
@@ -58,7 +68,7 @@ async function flush(phone) {
     if (conversation.isBotPaused(phone)) return;
 
     conversation.addMessage(phone, 'assistant', reply);
-    await sendBotText(phone, reply);
+    await sendBotText(phone, toWhatsAppFormat(reply));
   } catch (error) {
     console.error(`Erro ao responder ${phone}:`, error.message, error.response?.data || '');
     await sendBotText(phone, FALLBACK_MESSAGE).catch(() => {});

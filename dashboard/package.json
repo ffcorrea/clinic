@@ -1,0 +1,16 @@
+{
+  "name": "clinic-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p ${PORT:-3001}"
+  },
+  "dependencies": {
+    "next": "16.4.2",
+    "pg": "8.23.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  }
+}

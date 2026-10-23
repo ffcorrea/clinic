@@ -1,5 +1,6 @@
 const agentService = require('./agent.service');
 const conversation = require('./conversation.service');
+const usage = require('./usage.service');
 
 // Tempo de espera para juntar mensagens enviadas em sequencia pelo paciente
 const DEBOUNCE_MS = parseInt(process.env.DEBOUNCE_SECONDS || '5', 10) * 1000;
@@ -59,26 +60,36 @@ async function flush(clinic, phone) {
   const userText = buffer.texts.join('\n');
   conversation.addMessage(clinic.id, phone, 'user', userText);
 
+  const messagesIn = buffer.texts.length;
+  let result;
+
   try {
-    const result = await agentService.chat(clinic, conversation.getHistory(clinic.id, phone));
+    result = await agentService.chat(clinic, conversation.getHistory(clinic.id, phone));
     const reply = result.choices?.[0]?.message?.content?.trim();
 
     if (!reply) throw new Error('Resposta vazia do agente');
 
     // Checa de novo: o atendente pode ter respondido durante a chamada ao agente
-    if (conversation.isBotPaused(clinic.id, phone)) return;
+    // (os tokens ja foram gastos, entao registra mesmo sem enviar)
+    if (conversation.isBotPaused(clinic.id, phone)) {
+      usage.record(clinic, { phone, kind: 'reply', messagesIn, usage: result.usage });
+      return;
+    }
 
     conversation.addMessage(clinic.id, phone, 'assistant', reply);
     await sendBotText(clinic, phone, toWhatsAppFormat(reply));
+    usage.record(clinic, { phone, kind: 'reply', messagesIn, messagesOut: 1, usage: result.usage });
   } catch (error) {
     console.error(`[${clinic.id}] Erro ao responder ${phone}:`, error.message, error.response?.data || '');
     await sendBotText(clinic, phone, FALLBACK_MESSAGE).catch(() => {});
+    usage.record(clinic, { phone, kind: 'error', messagesIn, messagesOut: 1, usage: result?.usage });
   }
 }
 
 async function replyUnsupportedMedia(clinic, phone) {
   if (conversation.isBotPaused(clinic.id, phone)) return;
   await sendBotText(clinic, phone, UNSUPPORTED_MEDIA_MESSAGE);
+  usage.record(clinic, { phone, kind: 'unsupported_media', messagesIn: 1, messagesOut: 1 });
 }
 
 /**

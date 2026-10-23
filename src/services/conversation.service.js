@@ -1,4 +1,4 @@
-// Estado das conversas em memoria (por telefone).
+// Estado das conversas em memoria (por consultorio + telefone).
 // Obs: reiniciar o servidor apaga o historico. Para producao com mais de
 // uma instancia, trocar por Redis ou banco de dados.
 
@@ -18,23 +18,29 @@ function addLimited(set, value) {
   }
 }
 
-function getConversation(phone) {
-  let conv = conversations.get(phone);
+// O mesmo paciente pode falar com mais de um consultorio
+function conversationKey(clinicId, phone) {
+  return `${clinicId}:${phone}`;
+}
+
+function getConversation(clinicId, phone) {
+  const key = conversationKey(clinicId, phone);
+  let conv = conversations.get(key);
 
   if (!conv || Date.now() - conv.updatedAt > HISTORY_TTL_MS) {
     conv = { history: [], updatedAt: Date.now(), pausedUntil: conv?.pausedUntil || 0 };
-    conversations.set(phone, conv);
+    conversations.set(key, conv);
   }
 
   return conv;
 }
 
-function getHistory(phone) {
-  return getConversation(phone).history;
+function getHistory(clinicId, phone) {
+  return getConversation(clinicId, phone).history;
 }
 
-function addMessage(phone, role, content) {
-  const conv = getConversation(phone);
+function addMessage(clinicId, phone, role, content) {
+  const conv = getConversation(clinicId, phone);
   conv.history.push({ role, content });
 
   if (conv.history.length > MAX_HISTORY) {
@@ -44,21 +50,21 @@ function addMessage(phone, role, content) {
   conv.updatedAt = Date.now();
 }
 
-function clearHistory(phone) {
-  conversations.delete(phone);
+function clearHistory(clinicId, phone) {
+  conversations.delete(conversationKey(clinicId, phone));
 }
 
 // Pausa o bot para um telefone (atendente humano assumiu)
-function pauseBot(phone, durationMs = HUMAN_PAUSE_MS) {
-  getConversation(phone).pausedUntil = Date.now() + durationMs;
+function pauseBot(clinicId, phone, durationMs = HUMAN_PAUSE_MS) {
+  getConversation(clinicId, phone).pausedUntil = Date.now() + durationMs;
 }
 
-function resumeBot(phone) {
-  getConversation(phone).pausedUntil = 0;
+function resumeBot(clinicId, phone) {
+  getConversation(clinicId, phone).pausedUntil = 0;
 }
 
-function isBotPaused(phone) {
-  return getConversation(phone).pausedUntil > Date.now();
+function isBotPaused(clinicId, phone) {
+  return getConversation(clinicId, phone).pausedUntil > Date.now();
 }
 
 // Evita processar a mesma mensagem duas vezes (reenvio de webhook)
@@ -82,9 +88,9 @@ function wasSentByBot(messageId) {
 // Remove conversas expiradas periodicamente
 setInterval(() => {
   const now = Date.now();
-  for (const [phone, conv] of conversations) {
+  for (const [key, conv] of conversations) {
     if (now - conv.updatedAt > HISTORY_TTL_MS && conv.pausedUntil < now) {
-      conversations.delete(phone);
+      conversations.delete(key);
     }
   }
 }, 10 * 60 * 1000).unref();

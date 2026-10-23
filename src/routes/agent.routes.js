@@ -1,12 +1,14 @@
 const express = require('express');
 const agentService = require('../services/agent.service');
 const { requireSecret } = require('../middlewares/auth');
+const { loadClinic } = require('../middlewares/clinic');
 
-const router = express.Router();
+// Montado em /agent/:clinicId
+const router = express.Router({ mergeParams: true });
 
-router.use(requireSecret);
+router.use(requireSecret, loadClinic);
 
-// POST /agent/chat - Enviar mensagem para o agente
+// POST /agent/:clinicId/chat - Enviar mensagem para o agente
 router.post('/chat', async (req, res) => {
   try {
     const { messages } = req.body;
@@ -19,7 +21,7 @@ router.post('/chat', async (req, res) => {
       ? messages
       : [{ role: 'user', content: messages }];
 
-    const result = await agentService.chat(messagesArray);
+    const result = await agentService.chat(req.clinic, messagesArray);
 
     res.json(result);
   } catch (error) {

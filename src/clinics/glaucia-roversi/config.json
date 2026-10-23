@@ -1,0 +1,8 @@
+{
+  "name": "Dra. Glaucia Roversi",
+  "zapi": {
+    "instanceIdEnv": "ZAPI_INSTANCE_ID",
+    "tokenEnv": "ZAPI_TOKEN",
+    "clientTokenEnv": "ZAPI_CLIENT_TOKEN"
+  }
+}

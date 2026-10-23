@@ -1,14 +1,16 @@
 const express = require('express');
-const zapiService = require('../services/zapi.service');
+const clinicService = require('../services/clinic.service');
 const chatbotService = require('../services/chatbot.service');
 const conversationService = require('../services/conversation.service');
 const { requireSecret } = require('../middlewares/auth');
+const { loadClinic } = require('../middlewares/clinic');
 
-const router = express.Router();
+// Montado em /zapi/:clinicId (ex: /zapi/glaucia-roversi/send-text)
+const router = express.Router({ mergeParams: true });
 
-router.use(requireSecret);
+router.use(requireSecret, loadClinic);
 
-// POST /zapi/send-text - Enviar mensagem de texto
+// POST /zapi/:clinicId/send-text - Enviar mensagem de texto
 router.post('/send-text', async (req, res) => {
   try {
     const { phone, message } = req.body;
@@ -17,7 +19,7 @@ router.post('/send-text', async (req, res) => {
       return res.status(400).json({ error: 'phone e message sao obrigatorios' });
     }
 
-    const result = await zapiService.sendText(phone, message);
+    const result = await req.clinic.zapi.sendText(phone, message);
     res.json(result);
   } catch (error) {
     console.error('Erro ao enviar mensagem:', error.message);
@@ -28,7 +30,7 @@ router.post('/send-text', async (req, res) => {
   }
 });
 
-// POST /zapi/send-image - Enviar imagem
+// POST /zapi/:clinicId/send-image - Enviar imagem
 router.post('/send-image', async (req, res) => {
   try {
     const { phone, image, caption } = req.body;
@@ -37,7 +39,7 @@ router.post('/send-image', async (req, res) => {
       return res.status(400).json({ error: 'phone e image sao obrigatorios' });
     }
 
-    const result = await zapiService.sendImage(phone, image, caption);
+    const result = await req.clinic.zapi.sendImage(phone, image, caption);
     res.json(result);
   } catch (error) {
     console.error('Erro ao enviar imagem:', error.message);
@@ -48,7 +50,7 @@ router.post('/send-image', async (req, res) => {
   }
 });
 
-// POST /zapi/send-document - Enviar documento
+// POST /zapi/:clinicId/send-document - Enviar documento
 router.post('/send-document', async (req, res) => {
   try {
     const { phone, document, fileName } = req.body;
@@ -57,7 +59,7 @@ router.post('/send-document', async (req, res) => {
       return res.status(400).json({ error: 'phone, document e fileName sao obrigatorios' });
     }
 
-    const result = await zapiService.sendDocument(phone, document, fileName);
+    const result = await req.clinic.zapi.sendDocument(phone, document, fileName);
     res.json(result);
   } catch (error) {
     console.error('Erro ao enviar documento:', error.message);
@@ -68,7 +70,7 @@ router.post('/send-document', async (req, res) => {
   }
 });
 
-// POST /zapi/send-audio - Enviar audio
+// POST /zapi/:clinicId/send-audio - Enviar audio
 router.post('/send-audio', async (req, res) => {
   try {
     const { phone, audio } = req.body;
@@ -77,7 +79,7 @@ router.post('/send-audio', async (req, res) => {
       return res.status(400).json({ error: 'phone e audio sao obrigatorios' });
     }
 
-    const result = await zapiService.sendAudio(phone, audio);
+    const result = await req.clinic.zapi.sendAudio(phone, audio);
     res.json(result);
   } catch (error) {
     console.error('Erro ao enviar audio:', error.message);
@@ -88,7 +90,7 @@ router.post('/send-audio', async (req, res) => {
   }
 });
 
-// POST /zapi/send-video - Enviar video
+// POST /zapi/:clinicId/send-video - Enviar video
 router.post('/send-video', async (req, res) => {
   try {
     const { phone, video, caption } = req.body;
@@ -97,7 +99,7 @@ router.post('/send-video', async (req, res) => {
       return res.status(400).json({ error: 'phone e video sao obrigatorios' });
     }
 
-    const result = await zapiService.sendVideo(phone, video, caption);
+    const result = await req.clinic.zapi.sendVideo(phone, video, caption);
     res.json(result);
   } catch (error) {
     console.error('Erro ao enviar video:', error.message);
@@ -108,7 +110,7 @@ router.post('/send-video', async (req, res) => {
   }
 });
 
-// POST /zapi/send-location - Enviar localizacao
+// POST /zapi/:clinicId/send-location - Enviar localizacao
 router.post('/send-location', async (req, res) => {
   try {
     const { phone, title, address, latitude, longitude } = req.body;
@@ -117,7 +119,7 @@ router.post('/send-location', async (req, res) => {
       return res.status(400).json({ error: 'phone, latitude e longitude sao obrigatorios' });
     }
 
-    const result = await zapiService.sendLocation(phone, title, address, latitude, longitude);
+    const result = await req.clinic.zapi.sendLocation(phone, title, address, latitude, longitude);
     res.json(result);
   } catch (error) {
     console.error('Erro ao enviar localizacao:', error.message);
@@ -128,7 +130,7 @@ router.post('/send-location', async (req, res) => {
   }
 });
 
-// POST /zapi/send-buttons - Enviar botoes
+// POST /zapi/:clinicId/send-buttons - Enviar botoes
 router.post('/send-buttons', async (req, res) => {
   try {
     const { phone, message, buttons } = req.body;
@@ -137,7 +139,7 @@ router.post('/send-buttons', async (req, res) => {
       return res.status(400).json({ error: 'phone, message e buttons sao obrigatorios' });
     }
 
-    const result = await zapiService.sendButtons(phone, message, buttons);
+    const result = await req.clinic.zapi.sendButtons(phone, message, buttons);
     res.json(result);
   } catch (error) {
     console.error('Erro ao enviar botoes:', error.message);
@@ -148,7 +150,7 @@ router.post('/send-buttons', async (req, res) => {
   }
 });
 
-// POST /zapi/send-list - Enviar lista
+// POST /zapi/:clinicId/send-list - Enviar lista
 router.post('/send-list', async (req, res) => {
   try {
     const { phone, message, buttonLabel, sections } = req.body;
@@ -157,7 +159,7 @@ router.post('/send-list', async (req, res) => {
       return res.status(400).json({ error: 'phone, message, buttonLabel e sections sao obrigatorios' });
     }
 
-    const result = await zapiService.sendList(phone, message, buttonLabel, sections);
+    const result = await req.clinic.zapi.sendList(phone, message, buttonLabel, sections);
     res.json(result);
   } catch (error) {
     console.error('Erro ao enviar lista:', error.message);
@@ -168,11 +170,11 @@ router.post('/send-list', async (req, res) => {
   }
 });
 
-// GET /zapi/check-number/:phone - Verificar se numero tem WhatsApp
+// GET /zapi/:clinicId/check-number/:phone - Verificar se numero tem WhatsApp
 router.get('/check-number/:phone', async (req, res) => {
   try {
     const { phone } = req.params;
-    const result = await zapiService.checkNumber(phone);
+    const result = await req.clinic.zapi.checkNumber(phone);
     res.json(result);
   } catch (error) {
     console.error('Erro ao verificar numero:', error.message);
@@ -183,10 +185,10 @@ router.get('/check-number/:phone', async (req, res) => {
   }
 });
 
-// GET /zapi/status - Status da instancia
+// GET /zapi/:clinicId/status - Status da instancia
 router.get('/status', async (req, res) => {
   try {
-    const result = await zapiService.getStatus();
+    const result = await req.clinic.zapi.getStatus();
     res.json(result);
   } catch (error) {
     console.error('Erro ao obter status:', error.message);
@@ -197,10 +199,10 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// GET /zapi/qr-code - Obter QR Code
+// GET /zapi/:clinicId/qr-code - Obter QR Code
 router.get('/qr-code', async (req, res) => {
   try {
-    const result = await zapiService.getQRCode();
+    const result = await req.clinic.zapi.getQRCode();
     res.json(result);
   } catch (error) {
     console.error('Erro ao obter QR Code:', error.message);
@@ -211,10 +213,10 @@ router.get('/qr-code', async (req, res) => {
   }
 });
 
-// POST /zapi/disconnect - Desconectar instancia
+// POST /zapi/:clinicId/disconnect - Desconectar instancia
 router.post('/disconnect', async (req, res) => {
   try {
-    const result = await zapiService.disconnect();
+    const result = await req.clinic.zapi.disconnect();
     res.json(result);
   } catch (error) {
     console.error('Erro ao desconectar:', error.message);
@@ -225,10 +227,10 @@ router.post('/disconnect', async (req, res) => {
   }
 });
 
-// POST /zapi/restart - Reiniciar instancia
+// POST /zapi/:clinicId/restart - Reiniciar instancia
 router.post('/restart', async (req, res) => {
   try {
-    const result = await zapiService.restart();
+    const result = await req.clinic.zapi.restart();
     res.json(result);
   } catch (error) {
     console.error('Erro ao reiniciar:', error.message);
@@ -239,17 +241,17 @@ router.post('/restart', async (req, res) => {
   }
 });
 
-// POST /zapi/webhook - Receber mensagens (webhook "Ao receber" da Z-API)
+// POST /zapi/:clinicId/webhook - Receber mensagens (webhook "Ao receber" da Z-API)
 router.post('/webhook', (req, res) => {
   // Responde na hora para a Z-API nao reenviar; o processamento segue em segundo plano
   res.json({ status: 'received' });
 
-  chatbotService.handleWebhook(req.body).catch((error) => {
-    console.error('Erro no webhook:', error.message, error.response?.data || '');
+  chatbotService.handleWebhook(req.clinic, req.body).catch((error) => {
+    console.error(`[${req.clinic.id}] Erro no webhook:`, error.message, error.response?.data || '');
   });
 });
 
-// POST /zapi/setup-webhook - Configura na Z-API a URL do webhook e o aviso de mensagens enviadas por mim
+// POST /zapi/:clinicId/setup-webhook - Configura na Z-API a URL do webhook e o aviso de mensagens enviadas por mim
 // body: { url: "https://seu-dominio.com" }
 router.post('/setup-webhook', async (req, res) => {
   try {
@@ -260,10 +262,10 @@ router.post('/setup-webhook', async (req, res) => {
     }
 
     const secret = process.env.WEBHOOK_SECRET;
-    const webhookUrl = `${url.replace(/\/$/, '')}/zapi/webhook${secret ? `?token=${secret}` : ''}`;
+    const webhookUrl = `${url.replace(/\/$/, '')}/zapi/${req.clinic.id}/webhook${secret ? `?token=${secret}` : ''}`;
 
-    const webhook = await zapiService.updateWebhookReceived(webhookUrl);
-    const notifySentByMe = await zapiService.updateNotifySentByMe(true);
+    const webhook = await req.clinic.zapi.updateWebhookReceived(webhookUrl);
+    const notifySentByMe = await req.clinic.zapi.updateNotifySentByMe(true);
 
     res.json({ webhookUrl, webhook, notifySentByMe });
   } catch (error) {
@@ -275,26 +277,26 @@ router.post('/setup-webhook', async (req, res) => {
   }
 });
 
-// POST /zapi/bot/:phone/pause - Pausa o bot para um paciente (atendimento humano)
+// POST /zapi/:clinicId/bot/:phone/pause - Pausa o bot para um paciente (atendimento humano)
 router.post('/bot/:phone/pause', (req, res) => {
   const minutes = parseInt(req.body?.minutes || process.env.HUMAN_PAUSE_MINUTES || '60', 10);
-  conversationService.pauseBot(req.params.phone, minutes * 60 * 1000);
+  conversationService.pauseBot(req.clinic.id, req.params.phone, minutes * 60 * 1000);
   res.json({ status: 'paused', minutes });
 });
 
-// POST /zapi/bot/:phone/resume - Reativa o bot para um paciente
+// POST /zapi/:clinicId/bot/:phone/resume - Reativa o bot para um paciente
 router.post('/bot/:phone/resume', (req, res) => {
-  conversationService.resumeBot(req.params.phone);
+  conversationService.resumeBot(req.clinic.id, req.params.phone);
   res.json({ status: 'resumed' });
 });
 
-// POST /zapi/bot/:phone/reset - Apaga o historico da conversa
+// POST /zapi/:clinicId/bot/:phone/reset - Apaga o historico da conversa
 router.post('/bot/:phone/reset', (req, res) => {
-  conversationService.clearHistory(req.params.phone);
+  conversationService.clearHistory(req.clinic.id, req.params.phone);
   res.json({ status: 'reset' });
 });
 
-// POST /zapi/webhook/status - Webhook de status (conexao, desconexao, etc)
+// POST /zapi/:clinicId/webhook/status - Webhook de status (conexao, desconexao, etc)
 router.post('/webhook/status', async (req, res) => {
   try {
     const statusData = req.body;
@@ -306,4 +308,21 @@ router.post('/webhook/status', async (req, res) => {
   }
 });
 
+// POST /zapi/webhook - Webhook antigo, sem o consultorio na URL.
+// Identifica o consultorio pelo instanceId que a Z-API envia no payload.
+function webhookByInstance(req, res) {
+  res.json({ status: 'received' });
+
+  const clinic = clinicService.findByInstanceId(req.body?.instanceId);
+  if (!clinic) {
+    console.error('Webhook de instancia desconhecida:', req.body?.instanceId);
+    return;
+  }
+
+  chatbotService.handleWebhook(clinic, req.body).catch((error) => {
+    console.error(`[${clinic.id}] Erro no webhook:`, error.message, error.response?.data || '');
+  });
+}
+
 module.exports = router;
+module.exports.webhookByInstance = webhookByInstance;

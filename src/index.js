@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+const clinicService = require('./services/clinic.service');
+const { requireSecret } = require('./middlewares/auth');
 const agentRoutes = require('./routes/agent.routes');
 const zapiRoutes = require('./routes/zapi.routes');
 
@@ -21,8 +23,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use('/agent', agentRoutes);
-app.use('/zapi', zapiRoutes);
+app.get('/clinics', requireSecret, (req, res) => {
+  res.json(clinicService.listClinics());
+});
+
+// Precisa vir antes de /zapi/:clinicId, senao "webhook" seria lido como id do consultorio
+app.post('/zapi/webhook', requireSecret, zapiRoutes.webhookByInstance);
+
+app.use('/agent/:clinicId', agentRoutes);
+app.use('/zapi/:clinicId', zapiRoutes);
 
 // Start server
 app.listen(PORT, () => {

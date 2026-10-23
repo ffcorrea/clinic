@@ -1,4 +1,3 @@
-const zapiService = require('./zapi.service');
 const agentService = require('./agent.service');
 const conversation = require('./conversation.service');
 
@@ -23,8 +22,8 @@ function toWhatsAppFormat(text) {
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '$1: $2');
 }
 
-async function sendBotText(phone, message) {
-  const result = await zapiService.sendText(phone, message);
+async function sendBotText(clinic, phone, message) {
+  const result = await clinic.zapi.sendText(phone, message);
   conversation.markSentByBot(result?.messageId);
   conversation.markSentByBot(result?.zaapId);
   return result;
@@ -34,56 +33,58 @@ async function sendBotText(phone, message) {
  * Recebe uma mensagem de texto do paciente e agenda o processamento.
  * Mensagens que chegam dentro do DEBOUNCE_MS sao agrupadas em uma so.
  */
-function enqueueMessage(phone, text) {
-  let buffer = buffers.get(phone);
+function enqueueMessage(clinic, phone, text) {
+  const key = `${clinic.id}:${phone}`;
+  let buffer = buffers.get(key);
 
   if (!buffer) {
     buffer = { texts: [], timer: null };
-    buffers.set(phone, buffer);
+    buffers.set(key, buffer);
   }
 
   buffer.texts.push(text);
   clearTimeout(buffer.timer);
-  buffer.timer = setTimeout(() => flush(phone), DEBOUNCE_MS);
+  buffer.timer = setTimeout(() => flush(clinic, phone), DEBOUNCE_MS);
 }
 
-async function flush(phone) {
-  const buffer = buffers.get(phone);
-  buffers.delete(phone);
+async function flush(clinic, phone) {
+  const key = `${clinic.id}:${phone}`;
+  const buffer = buffers.get(key);
+  buffers.delete(key);
   if (!buffer || buffer.texts.length === 0) return;
 
   // Atendente pode ter assumido enquanto esperavamos
-  if (conversation.isBotPaused(phone)) return;
+  if (conversation.isBotPaused(clinic.id, phone)) return;
 
   const userText = buffer.texts.join('\n');
-  conversation.addMessage(phone, 'user', userText);
+  conversation.addMessage(clinic.id, phone, 'user', userText);
 
   try {
-    const result = await agentService.chat(conversation.getHistory(phone));
+    const result = await agentService.chat(clinic, conversation.getHistory(clinic.id, phone));
     const reply = result.choices?.[0]?.message?.content?.trim();
 
     if (!reply) throw new Error('Resposta vazia do agente');
 
     // Checa de novo: o atendente pode ter respondido durante a chamada ao agente
-    if (conversation.isBotPaused(phone)) return;
+    if (conversation.isBotPaused(clinic.id, phone)) return;
 
-    conversation.addMessage(phone, 'assistant', reply);
-    await sendBotText(phone, toWhatsAppFormat(reply));
+    conversation.addMessage(clinic.id, phone, 'assistant', reply);
+    await sendBotText(clinic, phone, toWhatsAppFormat(reply));
   } catch (error) {
-    console.error(`Erro ao responder ${phone}:`, error.message, error.response?.data || '');
-    await sendBotText(phone, FALLBACK_MESSAGE).catch(() => {});
+    console.error(`[${clinic.id}] Erro ao responder ${phone}:`, error.message, error.response?.data || '');
+    await sendBotText(clinic, phone, FALLBACK_MESSAGE).catch(() => {});
   }
 }
 
-async function replyUnsupportedMedia(phone) {
-  if (conversation.isBotPaused(phone)) return;
-  await sendBotText(phone, UNSUPPORTED_MEDIA_MESSAGE);
+async function replyUnsupportedMedia(clinic, phone) {
+  if (conversation.isBotPaused(clinic.id, phone)) return;
+  await sendBotText(clinic, phone, UNSUPPORTED_MEDIA_MESSAGE);
 }
 
 /**
- * Trata o payload do webhook "Ao receber" da Z-API.
+ * Trata o payload do webhook "Ao receber" da Z-API de um consultorio.
  */
-async function handleWebhook(data) {
+async function handleWebhook(clinic, data) {
   // Ignora grupos, status, broadcast, canais e chamadas
   if (data.isGroup || data.isNewsletter || data.broadcast || data.isStatusReply) return;
   if (data.type !== 'ReceivedCallback' || data.isEdit || data.waitingMessage) return;
@@ -97,20 +98,20 @@ async function handleWebhook(data) {
   // (requer "notificar enviadas por mim" ativo na Z-API)
   if (data.fromMe) {
     if (!data.fromApi && !conversation.wasSentByBot(data.messageId)) {
-      conversation.pauseBot(phone);
-      console.log(`Atendente humano assumiu ${phone}, bot pausado`);
+      conversation.pauseBot(clinic.id, phone);
+      console.log(`[${clinic.id}] Atendente humano assumiu ${phone}, bot pausado`);
     }
     return;
   }
 
-  if (conversation.isBotPaused(phone)) return;
+  if (conversation.isBotPaused(clinic.id, phone)) return;
 
   const text = data.text?.message || data.image?.caption;
 
   if (text) {
-    enqueueMessage(phone, text);
+    enqueueMessage(clinic, phone, text);
   } else if (data.audio || data.image || data.video || data.document || data.sticker) {
-    await replyUnsupportedMedia(phone);
+    await replyUnsupportedMedia(clinic, phone);
   }
 }
 

@@ -1,207 +1,225 @@
 const axios = require('axios');
 
-const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
-const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
-const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
-
-const BASE_URL = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}`;
-
-const api = axios.create({
-  baseURL: BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-    'Client-Token': ZAPI_CLIENT_TOKEN,
-  },
-});
-
 /**
- * Envia mensagem de texto
- * @param {string} phone - Numero do telefone (ex: 5511999999999)
- * @param {string} message - Mensagem a ser enviada
+ * Cria um cliente da Z-API para uma instancia (um numero de WhatsApp por consultorio)
+ * @param {Object} credentials - { instanceId, token, clientToken }
  */
-async function sendText(phone, message) {
-  const response = await api.post('/send-text', {
-    phone,
-    message,
-  });
-  return response.data;
-}
-
-/**
- * Envia imagem
- * @param {string} phone - Numero do telefone
- * @param {string} image - URL da imagem
- * @param {string} caption - Legenda opcional
- */
-async function sendImage(phone, image, caption = '') {
-  const response = await api.post('/send-image', {
-    phone,
-    image,
-    caption,
-  });
-  return response.data;
-}
-
-/**
- * Envia documento/arquivo
- * @param {string} phone - Numero do telefone
- * @param {string} document - URL do documento
- * @param {string} fileName - Nome do arquivo
- */
-async function sendDocument(phone, document, fileName) {
-  const response = await api.post('/send-document', {
-    phone,
-    document,
-    fileName,
-  });
-  return response.data;
-}
-
-/**
- * Envia audio
- * @param {string} phone - Numero do telefone
- * @param {string} audio - URL do audio
- */
-async function sendAudio(phone, audio) {
-  const response = await api.post('/send-audio', {
-    phone,
-    audio,
-  });
-  return response.data;
-}
-
-/**
- * Envia video
- * @param {string} phone - Numero do telefone
- * @param {string} video - URL do video
- * @param {string} caption - Legenda opcional
- */
-async function sendVideo(phone, video, caption = '') {
-  const response = await api.post('/send-video', {
-    phone,
-    video,
-    caption,
-  });
-  return response.data;
-}
-
-/**
- * Envia localizacao
- * @param {string} phone - Numero do telefone
- * @param {string} title - Titulo do local
- * @param {string} address - Endereco
- * @param {number} latitude - Latitude
- * @param {number} longitude - Longitude
- */
-async function sendLocation(phone, title, address, latitude, longitude) {
-  const response = await api.post('/send-location', {
-    phone,
-    title,
-    address,
-    latitude,
-    longitude,
-  });
-  return response.data;
-}
-
-/**
- * Envia botoes interativos
- * @param {string} phone - Numero do telefone
- * @param {string} message - Mensagem
- * @param {Array} buttons - Array de botoes [{id: '1', label: 'Opcao 1'}]
- */
-async function sendButtons(phone, message, buttons) {
-  const response = await api.post('/send-button-list', {
-    phone,
-    message,
-    buttonList: {
-      buttons: buttons.map(btn => ({
-        id: btn.id,
-        label: btn.label,
-      })),
+function createClient({ instanceId, token, clientToken }) {
+  const api = axios.create({
+    baseURL: `https://api.z-api.io/instances/${instanceId}/token/${token}`,
+    headers: {
+      'Content-Type': 'application/json',
+      'Client-Token': clientToken,
     },
   });
-  return response.data;
-}
 
-/**
- * Envia lista de opcoes
- * @param {string} phone - Numero do telefone
- * @param {string} message - Mensagem
- * @param {string} buttonLabel - Label do botao
- * @param {Array} sections - Secoes com opcoes
- */
-async function sendList(phone, message, buttonLabel, sections) {
-  const response = await api.post('/send-option-list', {
-    phone,
-    message,
-    optionList: {
-      title: buttonLabel,
-      buttonLabel,
-      options: sections,
-    },
-  });
-  return response.data;
-}
+  /**
+   * Envia mensagem de texto
+   * @param {string} phone - Numero do telefone (ex: 5511999999999)
+   * @param {string} message - Mensagem a ser enviada
+   */
+  async function sendText(phone, message) {
+    const response = await api.post('/send-text', {
+      phone,
+      message,
+    });
+    return response.data;
+  }
 
-/**
- * Verifica se o numero tem WhatsApp
- * @param {string} phone - Numero do telefone
- */
-async function checkNumber(phone) {
-  const response = await api.get(`/phone-exists/${phone}`);
-  return response.data;
-}
+  /**
+   * Envia imagem
+   * @param {string} phone - Numero do telefone
+   * @param {string} image - URL da imagem
+   * @param {string} caption - Legenda opcional
+   */
+  async function sendImage(phone, image, caption = '') {
+    const response = await api.post('/send-image', {
+      phone,
+      image,
+      caption,
+    });
+    return response.data;
+  }
 
-/**
- * Obtem status da instancia
- */
-async function getStatus() {
-  const response = await api.get('/status');
-  return response.data;
-}
+  /**
+   * Envia documento/arquivo
+   * @param {string} phone - Numero do telefone
+   * @param {string} document - URL do documento
+   * @param {string} fileName - Nome do arquivo
+   */
+  async function sendDocument(phone, document, fileName) {
+    const response = await api.post('/send-document', {
+      phone,
+      document,
+      fileName,
+    });
+    return response.data;
+  }
 
-/**
- * Obtem QR Code para conexao
- */
-async function getQRCode() {
-  const response = await api.get('/qr-code/image');
-  return response.data;
-}
+  /**
+   * Envia audio
+   * @param {string} phone - Numero do telefone
+   * @param {string} audio - URL do audio
+   */
+  async function sendAudio(phone, audio) {
+    const response = await api.post('/send-audio', {
+      phone,
+      audio,
+    });
+    return response.data;
+  }
 
-/**
- * Desconecta a instancia
- */
-async function disconnect() {
-  const response = await api.get('/disconnect');
-  return response.data;
-}
+  /**
+   * Envia video
+   * @param {string} phone - Numero do telefone
+   * @param {string} video - URL do video
+   * @param {string} caption - Legenda opcional
+   */
+  async function sendVideo(phone, video, caption = '') {
+    const response = await api.post('/send-video', {
+      phone,
+      video,
+      caption,
+    });
+    return response.data;
+  }
 
-/**
- * Restaura a sessao
- */
-async function restart() {
-  const response = await api.get('/restart');
-  return response.data;
-}
+  /**
+   * Envia localizacao
+   * @param {string} phone - Numero do telefone
+   * @param {string} title - Titulo do local
+   * @param {string} address - Endereco
+   * @param {number} latitude - Latitude
+   * @param {number} longitude - Longitude
+   */
+  async function sendLocation(phone, title, address, latitude, longitude) {
+    const response = await api.post('/send-location', {
+      phone,
+      title,
+      address,
+      latitude,
+      longitude,
+    });
+    return response.data;
+  }
 
-/**
- * Configura a URL do webhook "Ao receber"
- * @param {string} url - URL publica (https) do webhook
- */
-async function updateWebhookReceived(url) {
-  const response = await api.put('/update-webhook-received', { value: url });
-  return response.data;
-}
+  /**
+   * Envia botoes interativos
+   * @param {string} phone - Numero do telefone
+   * @param {string} message - Mensagem
+   * @param {Array} buttons - Array de botoes [{id: '1', label: 'Opcao 1'}]
+   */
+  async function sendButtons(phone, message, buttons) {
+    const response = await api.post('/send-button-list', {
+      phone,
+      message,
+      buttonList: {
+        buttons: buttons.map(btn => ({
+          id: btn.id,
+          label: btn.label,
+        })),
+      },
+    });
+    return response.data;
+  }
 
-/**
- * Ativa/desativa o envio para o webhook das mensagens enviadas pelo proprio numero
- * (necessario para detectar quando um atendente humano responde)
- * @param {boolean} enabled
- */
-async function updateNotifySentByMe(enabled) {
-  const response = await api.put('/update-notify-sent-by-me', { notifySentByMe: enabled });
-  return response.data;
+  /**
+   * Envia lista de opcoes
+   * @param {string} phone - Numero do telefone
+   * @param {string} message - Mensagem
+   * @param {string} buttonLabel - Label do botao
+   * @param {Array} sections - Secoes com opcoes
+   */
+  async function sendList(phone, message, buttonLabel, sections) {
+    const response = await api.post('/send-option-list', {
+      phone,
+      message,
+      optionList: {
+        title: buttonLabel,
+        buttonLabel,
+        options: sections,
+      },
+    });
+    return response.data;
+  }
+
+  /**
+   * Verifica se o numero tem WhatsApp
+   * @param {string} phone - Numero do telefone
+   */
+  async function checkNumber(phone) {
+    const response = await api.get(`/phone-exists/${phone}`);
+    return response.data;
+  }
+
+  /**
+   * Obtem status da instancia
+   */
+  async function getStatus() {
+    const response = await api.get('/status');
+    return response.data;
+  }
+
+  /**
+   * Obtem QR Code para conexao
+   */
+  async function getQRCode() {
+    const response = await api.get('/qr-code/image');
+    return response.data;
+  }
+
+  /**
+   * Desconecta a instancia
+   */
+  async function disconnect() {
+    const response = await api.get('/disconnect');
+    return response.data;
+  }
+
+  /**
+   * Restaura a sessao
+   */
+  async function restart() {
+    const response = await api.get('/restart');
+    return response.data;
+  }
+
+  /**
+   * Configura a URL do webhook "Ao receber"
+   * @param {string} url - URL publica (https) do webhook
+   */
+  async function updateWebhookReceived(url) {
+    const response = await api.put('/update-webhook-received', { value: url });
+    return response.data;
+  }
+
+  /**
+   * Ativa/desativa o envio para o webhook das mensagens enviadas pelo proprio numero
+   * (necessario para detectar quando um atendente humano responde)
+   * @param {boolean} enabled
+   */
+  async function updateNotifySentByMe(enabled) {
+    const response = await api.put('/update-notify-sent-by-me', { notifySentByMe: enabled });
+    return response.data;
+  }
+
+  return {
+    sendText,
+    sendImage,
+    sendDocument,
+    sendAudio,
+    sendVideo,
+    sendLocation,
+    sendButtons,
+    sendList,
+    checkNumber,
+    getStatus,
+    getQRCode,
+    disconnect,
+    restart,
+    updateWebhookReceived,
+    updateNotifySentByMe,
+  };
 }
 
 /**
@@ -225,20 +243,6 @@ function processIncomingMessage(webhookData) {
 }
 
 module.exports = {
-  sendText,
-  sendImage,
-  sendDocument,
-  sendAudio,
-  sendVideo,
-  sendLocation,
-  sendButtons,
-  sendList,
-  checkNumber,
-  getStatus,
-  getQRCode,
-  disconnect,
-  restart,
-  updateWebhookReceived,
-  updateNotifySentByMe,
+  createClient,
   processIncomingMessage,
 };

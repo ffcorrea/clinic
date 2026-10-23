@@ -1,8 +1,12 @@
 const express = require('express');
 const zapiService = require('../services/zapi.service');
-const agentService = require('../services/agent.service');
+const chatbotService = require('../services/chatbot.service');
+const conversationService = require('../services/conversation.service');
+const { requireSecret } = require('../middlewares/auth');
 
 const router = express.Router();
+
+router.use(requireSecret);
 
 // POST /zapi/send-text - Enviar mensagem de texto
 router.post('/send-text', async (req, res) => {
@@ -235,50 +239,59 @@ router.post('/restart', async (req, res) => {
   }
 });
 
-// POST /zapi/webhook - Receber mensagens (webhook da Z-API)
-router.post('/webhook', async (req, res) => {
+// POST /zapi/webhook - Receber mensagens (webhook "Ao receber" da Z-API)
+router.post('/webhook', (req, res) => {
+  // Responde na hora para a Z-API nao reenviar; o processamento segue em segundo plano
+  res.json({ status: 'received' });
+
+  chatbotService.handleWebhook(req.body).catch((error) => {
+    console.error('Erro no webhook:', error.message, error.response?.data || '');
+  });
+});
+
+// POST /zapi/setup-webhook - Configura na Z-API a URL do webhook e o aviso de mensagens enviadas por mim
+// body: { url: "https://seu-dominio.com" }
+router.post('/setup-webhook', async (req, res) => {
   try {
-    const webhookData = req.body;
+    const { url } = req.body;
 
-    console.log('Webhook recebido:', JSON.stringify(webhookData, null, 2));
-
-    // Ignora mensagens enviadas por nos mesmos
-    if (webhookData.fromMe) {
-      return res.json({ status: 'ignored', reason: 'fromMe' });
+    if (!url) {
+      return res.status(400).json({ error: 'url e obrigatoria' });
     }
 
-    // Ignora se nao for mensagem de texto
-    if (!webhookData.text) {
-      return res.json({ status: 'ignored', reason: 'not_text' });
-    }
+    const secret = process.env.WEBHOOK_SECRET;
+    const webhookUrl = `${url.replace(/\/$/, '')}/zapi/webhook${secret ? `?token=${secret}` : ''}`;
 
-    // Processa a mensagem recebida
-    const message = zapiService.processIncomingMessage(webhookData);
+    const webhook = await zapiService.updateWebhookReceived(webhookUrl);
+    const notifySentByMe = await zapiService.updateNotifySentByMe(true);
 
-    console.log('Mensagem processada:', message);
-
-    // Envia para o agente IA e obtem resposta
-    const agentResponse = await agentService.sendMessage(message.text);
-
-    // Extrai a resposta do agente
-    const responseText = agentResponse.choices?.[0]?.message?.content || 'Desculpe, nao consegui processar sua mensagem.';
-
-    // Envia resposta de volta pelo WhatsApp
-    await zapiService.sendText(message.phone, responseText);
-
-    res.json({
-      status: 'processed',
-      messageId: message.messageId,
-      response: responseText,
-    });
+    res.json({ webhookUrl, webhook, notifySentByMe });
   } catch (error) {
-    console.error('Erro no webhook:', error.message);
-    console.error('Detalhes do erro:', JSON.stringify(error.response?.data, null, 2));
+    console.error('Erro ao configurar webhook:', error.message);
     res.status(500).json({
-      error: 'Erro ao processar webhook',
-      details: error.message,
+      error: 'Erro ao configurar webhook',
+      details: error.response?.data || error.message,
     });
   }
+});
+
+// POST /zapi/bot/:phone/pause - Pausa o bot para um paciente (atendimento humano)
+router.post('/bot/:phone/pause', (req, res) => {
+  const minutes = parseInt(req.body?.minutes || process.env.HUMAN_PAUSE_MINUTES || '60', 10);
+  conversationService.pauseBot(req.params.phone, minutes * 60 * 1000);
+  res.json({ status: 'paused', minutes });
+});
+
+// POST /zapi/bot/:phone/resume - Reativa o bot para um paciente
+router.post('/bot/:phone/resume', (req, res) => {
+  conversationService.resumeBot(req.params.phone);
+  res.json({ status: 'resumed' });
+});
+
+// POST /zapi/bot/:phone/reset - Apaga o historico da conversa
+router.post('/bot/:phone/reset', (req, res) => {
+  conversationService.clearHistory(req.params.phone);
+  res.json({ status: 'reset' });
 });
 
 // POST /zapi/webhook/status - Webhook de status (conexao, desconexao, etc)

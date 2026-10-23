@@ -1,7 +1,10 @@
 const express = require('express');
 const agentService = require('../services/agent.service');
+const { requireSecret } = require('../middlewares/auth');
 
 const router = express.Router();
+
+router.use(requireSecret);
 
 // POST /agent/chat - Enviar mensagem para o agente
 router.post('/chat', async (req, res) => {

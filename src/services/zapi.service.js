@@ -186,6 +186,25 @@ async function restart() {
 }
 
 /**
+ * Configura a URL do webhook "Ao receber"
+ * @param {string} url - URL publica (https) do webhook
+ */
+async function updateWebhookReceived(url) {
+  const response = await api.put('/update-webhook-received', { value: url });
+  return response.data;
+}
+
+/**
+ * Ativa/desativa o envio para o webhook das mensagens enviadas pelo proprio numero
+ * (necessario para detectar quando um atendente humano responde)
+ * @param {boolean} enabled
+ */
+async function updateNotifySentByMe(enabled) {
+  const response = await api.put('/update-notify-sent-by-me', { notifySentByMe: enabled });
+  return response.data;
+}
+
+/**
  * Processa webhook de mensagem recebida
  * @param {Object} webhookData - Dados do webhook da Z-API
  */
@@ -219,5 +238,7 @@ module.exports = {
   getQRCode,
   disconnect,
   restart,
+  updateWebhookReceived,
+  updateNotifySentByMe,
   processIncomingMessage,
 };

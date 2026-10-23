@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npm --prefix dashboard ci --include=dev && npm --prefix dashboard run build"
   },
   "keywords": [],
   "author": "",
@@ -21,5 +22,10 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "src"
+    ]
   }
 }

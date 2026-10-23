@@ -6,9 +6,13 @@ const clinicService = require('./services/clinic.service');
 const { requireSecret } = require('./middlewares/auth');
 const agentRoutes = require('./routes/agent.routes');
 const zapiRoutes = require('./routes/zapi.routes');
+const { mountDashboard } = require('./dashboard');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Painel de uso em /painel (antes do cors/json: o Next cuida dessas rotas sozinho)
+mountDashboard(app);
 
 // Middlewares
 app.use(cors());

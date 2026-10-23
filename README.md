@@ -46,14 +46,16 @@ Localmente ele le o mesmo `.env` da raiz que o bot; variaveis a mais:
 
 - `DASHBOARD_USER` / `DASHBOARD_PASSWORD` - login do painel
 
-## Deploy (um App Platform, dois componentes)
+## Deploy (App Platform, um componente so)
 
-| Componente | Source dir | Build | Run | Rota | Health check |
-|---|---|---|---|---|---|
-| bot (ja existe) | `/` | - | `npm start` | `/` | - |
-| dashboard | `/dashboard` | `npm run build` | `npm start` | `/painel` (preserve path prefix) | HTTP `/painel/health` |
+O Express do bot tambem serve o painel em `/painel` (Next.js como custom server, `src/dashboard.js`).
 
-O painel fica em `https://<seu-app>/painel`. O bot continua na raiz, entao os webhooks da Z-API nao mudam.
+- Build command: `npm run build` (instala e compila o `dashboard/`)
+- Run command: `npm start`
+- Painel: `https://<seu-app>/painel` - os webhooks da Z-API continuam iguais
+
+Sem o build do painel (ex: `npm run dev` do bot), `/painel` fica desativado; rode o painel a parte com
+`cd dashboard && npm run dev`.
 
 Use a URL do **Session pooler** do Supabase (botao "Connect") como `DATABASE_URL`,
 pois o host `db.<projeto>.supabase.co` so tem IPv6.

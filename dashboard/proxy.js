@@ -20,5 +20,6 @@ export function proxy(request) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // '/' explicito: com basePath, a raiz (/painel) nao casa com o padrao de baixo
+  matcher: ['/', '/((?!_next/static|_next/image|favicon.ico|health).*)'],
 };

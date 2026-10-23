@@ -41,10 +41,19 @@ Variaveis do bot:
 - `DATABASE_URL` - Postgres do Supabase (sem ela o registro fica desligado)
 - `PRICE_INPUT_PER_MTOK` / `PRICE_OUTPUT_PER_MTOK` - preco do modelo em US$ por 1 milhao de tokens (padrao 1 / 5)
 
-Painel (`cd dashboard && npm install && npm run dev`, abre em http://localhost:3001):
+Painel (`cd dashboard && npm install && npm run dev`, abre em http://localhost:3001/painel).
+Localmente ele le o mesmo `.env` da raiz que o bot; variaveis a mais:
 
-- `DATABASE_URL` - o mesmo banco
 - `DASHBOARD_USER` / `DASHBOARD_PASSWORD` - login do painel
 
-No deploy (App Platform), use a URL do **Session pooler** do Supabase (botao "Connect"),
+## Deploy (um App Platform, dois componentes)
+
+| Componente | Source dir | Build | Run | Rota | Health check |
+|---|---|---|---|---|---|
+| bot (ja existe) | `/` | - | `npm start` | `/` | - |
+| dashboard | `/dashboard` | `npm run build` | `npm start` | `/painel` (preserve path prefix) | HTTP `/painel/health` |
+
+O painel fica em `https://<seu-app>/painel`. O bot continua na raiz, entao os webhooks da Z-API nao mudam.
+
+Use a URL do **Session pooler** do Supabase (botao "Connect") como `DATABASE_URL`,
 pois o host `db.<projeto>.supabase.co` so tem IPv6.

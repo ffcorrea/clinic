@@ -8,6 +8,7 @@
     "start": "next start -p ${PORT:-3001}"
   },
   "dependencies": {
+    "dotenv": "17.2.3",
     "next": "16.4.2",
     "pg": "8.23.1",
     "react": "19.2.0",

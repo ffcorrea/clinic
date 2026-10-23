@@ -2,24 +2,42 @@
 
 Bot de WhatsApp (Z-API + DigitalOcean Serverless Inference) para varios consultorios.
 
+## Tipos de clinica (prompts)
+
+Cada tipo tem um modelo de prompt em `src/prompts/`: `odontologica.md`, `medica.md`, `nutricao.md`.
+Os `{{campos}}` do modelo sao preenchidos pelo bloco `prompt` do `config.json` de cada consultorio.
+Para criar um tipo novo, adicione `src/prompts/<tipo>.md`.
+
 ## Adicionar um consultorio
 
-1. Crie a pasta `src/clinics/<id>/` (o `<id>` vai na URL, ex: `clinica-centro`).
-2. Crie `config.json` com os NOMES das variaveis de ambiente da Z-API desse numero:
+1. Crie a pasta `src/clinics/<id>/` (o `<id>` vai na URL, ex: `instituto-lirium`).
+2. Crie `config.json`:
    ```json
    {
-     "name": "Clinica Centro",
+     "name": "Instituto Lirium",
+     "type": "odontologica",
+     "prompt": {
+       "professional": "a Dra. Fulana",
+       "services": ["Lentes de contato dental", "Clareamento dental"],
+       "hours": "segunda a sexta, 9h às 18h",
+       "instagram": "@institutolirium",
+       "notes": ["Estacionamento no local."]
+     },
      "zapi": {
-       "instanceIdEnv": "CLINICA_CENTRO_ZAPI_INSTANCE_ID",
-       "tokenEnv": "CLINICA_CENTRO_ZAPI_TOKEN",
-       "clientTokenEnv": "CLINICA_CENTRO_ZAPI_CLIENT_TOKEN"
+       "instanceIdEnv": "LIRIUM_ZAPI_INSTANCE_ID",
+       "tokenEnv": "LIRIUM_ZAPI_TOKEN",
+       "clientTokenEnv": "LIRIUM_ZAPI_CLIENT_TOKEN"
      }
    }
    ```
-   Opcional: `"model"` para usar um modelo diferente de `INFERENCE_MODEL`.
-3. Crie `prompt.md` com o prompt do agente desse consultorio.
-4. Defina as variaveis no `.env` / painel de deploy e reinicie o servidor.
-5. Aponte o webhook da Z-API: `POST /zapi/<id>/setup-webhook` com `{ "url": "https://seu-dominio.com" }`.
+   - `type`: nome de um arquivo em `src/prompts/` (sem `.md`)
+   - `professional`: como o bot se refere a quem atende ("a Dra. Fulana", "o Dr. Paulo", "a nutricionista Ana")
+   - `notes` (opcional): informacoes e regras so desse consultorio
+   - `model` (opcional): modelo diferente de `INFERENCE_MODEL`
+   - `zapi`: os NOMES das variaveis de ambiente da Z-API desse numero
+   - Se faltar algum campo, o servidor nao inicia e diz qual falta.
+3. Defina as variaveis no `.env` / painel de deploy e reinicie o servidor.
+4. Aponte o webhook da Z-API: `POST /zapi/<id>/setup-webhook` com `{ "url": "https://seu-dominio.com" }`.
 
 ## Rotas
 

@@ -1,5 +1,18 @@
 {
   "name": "Dra. Glaucia Roversi",
+  "type": "odontologica",
+  "prompt": {
+    "professional": "a Dra. Glaucia",
+    "services": [
+      "Lentes de contato dental",
+      "Clareamento dental",
+      "Implantes e próteses",
+      "Ortodontia (aparelho e alinhadores)"
+    ],
+    "hours": "segunda a sexta, 9h às 18h; sábado, 9h às 12h",
+    "instagram": "@dra.glauciaroversi",
+    "notes": []
+  },
   "zapi": {
     "instanceIdEnv": "ZAPI_INSTANCE_ID",
     "tokenEnv": "ZAPI_TOKEN",

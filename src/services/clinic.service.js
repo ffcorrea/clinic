@@ -2,15 +2,53 @@ const fs = require('fs');
 const path = require('path');
 const zapiService = require('./zapi.service');
 
-// Cada consultorio e uma pasta em src/clinics/<id>/ com:
-//   config.json - nome, modelo (opcional) e os NOMES das variaveis de ambiente da Z-API
-//   prompt.md   - prompt do agente (lido ao iniciar; editar e reiniciar o servidor)
+// Cada consultorio e uma pasta em src/clinics/<id>/ com um config.json:
+//   name, type, modelo (opcional), dados do prompt e os NOMES das variaveis de ambiente da Z-API.
+// O prompt vem do modelo do tipo, em src/prompts/<type>.md, com os {{campos}} preenchidos
+// pelo bloco "prompt" do config.json (lidos ao iniciar; editar e reiniciar o servidor).
 const CLINICS_DIR = path.join(__dirname, '..', 'clinics');
+const PROMPTS_DIR = path.join(__dirname, '..', 'prompts');
+
+const CLINIC_TYPES = fs.readdirSync(PROMPTS_DIR)
+  .filter((file) => file.endsWith('.md'))
+  .map((file) => path.basename(file, '.md'));
 
 function requireEnv(name, clinicId) {
   const value = process.env[name];
   if (!value) throw new Error(`Consultorio "${clinicId}": variavel de ambiente ${name} nao definida`);
   return value;
+}
+
+function toBulletList(value) {
+  return Array.isArray(value) ? value.map((item) => `- ${item}`).join('\n') : value;
+}
+
+// Monta o prompt: modelo do tipo + campos do config.json. Falha ao iniciar se faltar algum campo,
+// para nunca mandar "{{...}}" para o modelo.
+function buildPrompt(id, config) {
+  if (!CLINIC_TYPES.includes(config.type)) {
+    throw new Error(`Consultorio "${id}": "type" deve ser um de ${CLINIC_TYPES.join(', ')} (veio "${config.type}")`);
+  }
+
+  const template = fs.readFileSync(path.join(PROMPTS_DIR, `${config.type}.md`), 'utf8');
+  const notes = config.prompt?.notes || [];
+  const fields = {
+    name: config.name,
+    ...config.prompt,
+    services: toBulletList(config.prompt?.services),
+    notes: notes.length ? `\nINFORMAÇÕES ESPECÍFICAS DA CLÍNICA:\n${toBulletList(notes)}\n` : '',
+  };
+
+  const missing = new Set();
+  const prompt = template.replace(/{{(\w+)}}/g, (_, key) => {
+    if (key !== 'notes' && (fields[key] === undefined || fields[key] === '')) missing.add(key);
+    return fields[key] ?? '';
+  });
+
+  if (missing.size) {
+    throw new Error(`Consultorio "${id}": faltam em "prompt" no config.json: ${[...missing].join(', ')}`);
+  }
+  return prompt;
 }
 
 function loadClinic(id) {
@@ -26,8 +64,9 @@ function loadClinic(id) {
   return {
     id,
     name: config.name || id,
+    type: config.type,
     model: config.model || process.env.INFERENCE_MODEL,
-    prompt: fs.readFileSync(path.join(dir, 'prompt.md'), 'utf8'),
+    prompt: buildPrompt(id, config),
     instanceId: credentials.instanceId,
     zapi: zapiService.createClient(credentials),
   };
@@ -56,7 +95,7 @@ function findByInstanceId(instanceId) {
 }
 
 function listClinics() {
-  return [...clinics.values()].map(({ id, name, model }) => ({ id, name, model }));
+  return [...clinics.values()].map(({ id, name, type, model }) => ({ id, name, type, model }));
 }
 
 module.exports = {

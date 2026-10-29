@@ -5,34 +5,23 @@ const agenda = require('./agenda.service');
 const zapiService = require('./zapi.service');
 const secretBox = require('../lib/secret-box');
 
-// Consultorios vem de dois lugares:
-//  1. Pasta src/clinics/<id>/ com config.json (WhatsApp nas variaveis de ambiente).
-//  2. Cadastrados no painel (/painel/clinicas): tudo na tabela "clinics", tokens da Z-API criptografados.
-//     O bot le esses a cada DB_CLINICS_REFRESH_MS, entao uma clinica nova passa a ser atendida sem deploy.
-//
-// Pasta src/clinics/<id>/ com um config.json:
-//   name, type, modelo (opcional), dados iniciais do prompt e os NOMES das variaveis de ambiente da Z-API.
-// Na primeira vez, nome, tipo e dados do prompt vao para a tabela "clinics"; dai em diante sao
-// editados no painel (/painel/configuracao) e o config.json so vale se o banco estiver fora.
+// Consultorios ficam todos na tabela "clinics", cadastrados e editados no painel (/painel/clinicas e
+// /painel/configuracao): nome, tipo, dados do prompt, agenda e WhatsApp (Z-API, tokens criptografados).
+// O bot le a tabela a cada DB_CLINICS_REFRESH_MS, entao clinica nova ou alterada vale sem deploy.
 // O prompt vem do modelo do tipo, em src/prompts/<type>.md, com os {{campos}} preenchidos.
-const CLINICS_DIR = path.join(__dirname, '..', 'clinics');
 const PROMPTS_DIR = path.join(__dirname, '..', 'prompts');
 
 // Quanto tempo o bot usa a configuracao lida do banco antes de ler de novo
 const SETTINGS_CACHE_MS = 30 * 1000;
 const DB_CLINICS_REFRESH_MS = 30 * 1000;
 
+if (!db.enabled) throw new Error('DATABASE_URL nao definida: os consultorios ficam no banco de dados');
+
 const CLINIC_TYPES = fs.readdirSync(PROMPTS_DIR)
   .filter((file) => file.endsWith('.md'))
   .map((file) => path.basename(file, '.md'));
 
 const REQUIRED_FIELDS = ['professional', 'services', 'instagram'];
-
-function requireEnv(name, clinicId) {
-  const value = process.env[name];
-  if (!value) throw new Error(`Consultorio "${clinicId}": variavel de ambiente ${name} nao definida`);
-  return value;
-}
 
 function toBulletList(value) {
   return Array.isArray(value) ? value.map((item) => `- ${item}`).join('\n') : value;
@@ -64,65 +53,23 @@ function renderPrompt({ name, type, settings }) {
   return template.replace(/{{(\w+)}}/g, (_, key) => fields[key] ?? '');
 }
 
-function loadClinic(id) {
-  const dir = path.join(CLINICS_DIR, id);
-  const config = JSON.parse(fs.readFileSync(path.join(dir, 'config.json'), 'utf8'));
+const toProfile = (row) => ({
+  name: row.name,
+  type: row.type,
+  settings: { ...row.settings, schedule: agenda.withDefaults(row.settings.schedule) },
+});
 
-  // Perfil inicial (vai para o banco na primeira vez)
-  const seed = {
-    name: config.name || id,
-    type: config.type,
-    settings: { ...config.prompt, schedule: agenda.withDefaults(config.prompt?.schedule) },
-  };
-  delete seed.settings.hours;
+// Consultorios ativos e com WhatsApp cadastrado: id -> { id, name, type, model, seed, instanceId, zapi }
+const clinics = new Map();
 
-  const problems = validateProfile(seed);
-  if (problems.length) {
-    throw new Error(`Consultorio "${id}": config.json invalido, confira: ${problems.join(', ')}`);
-  }
-
-  const credentials = {
-    instanceId: requireEnv(config.zapi.instanceIdEnv, id),
-    token: requireEnv(config.zapi.tokenEnv, id),
-    clientToken: requireEnv(config.zapi.clientTokenEnv, id),
-  };
-
-  return {
-    id,
-    name: seed.name,
-    type: seed.type,
-    model: config.model || process.env.INFERENCE_MODEL,
-    seed,
-    instanceId: credentials.instanceId,
-    zapi: zapiService.createClient(credentials),
-  };
-}
-
-const clinics = new Map(
-  fs.readdirSync(CLINICS_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => [entry.name, loadClinic(entry.name)])
-);
-
-if (clinics.size === 0 && !db.enabled) throw new Error(`Nenhum consultorio encontrado em ${CLINICS_DIR}`);
-
-console.log(`Consultorios carregados: ${[...clinics.keys()].join(', ') || '(nenhum na pasta)'}`);
-
-const fileClinicIds = new Set(clinics.keys());
-const inactiveIds = new Set();
-
-// Clinicas cadastradas pelo painel (WhatsApp no banco) e clinicas desativadas no painel
-async function refreshDbClinics() {
+async function refreshClinics() {
   const rows = await db.query(
     'SELECT id, name, type, settings, zapi_instance_id, zapi_token, zapi_client_token, active FROM clinics'
   );
   const seen = new Set();
 
   for (const row of rows) {
-    if (row.active) inactiveIds.delete(row.id);
-    else inactiveIds.add(row.id);
-    if (fileClinicIds.has(row.id) || !row.zapi_instance_id || !row.zapi_token || !row.zapi_client_token) continue;
-    seen.add(row.id);
+    if (!row.active || !row.zapi_instance_id || !row.zapi_token || !row.zapi_client_token) continue;
 
     let credentials;
     try {
@@ -133,8 +80,11 @@ async function refreshDbClinics() {
       };
     } catch (error) {
       console.error(`[${row.id}] Nao foi possivel ler as credenciais da Z-API (chave trocada?):`, error.message);
+      // Mantem a conexao que ja estava funcionando, se houver
+      if (clinics.has(row.id)) seen.add(row.id);
       continue;
     }
+    seen.add(row.id);
 
     const current = clinics.get(row.id);
     const fingerprint = `${credentials.instanceId}|${credentials.token}|${credentials.clientToken}`;
@@ -145,93 +95,74 @@ async function refreshDbClinics() {
       name: row.name,
       type: row.type,
       model: process.env.INFERENCE_MODEL,
-      seed: { name: row.name, type: row.type, settings: { ...row.settings, schedule: agenda.withDefaults(row.settings.schedule) } },
+      // Perfil de reserva se a leitura da configuracao falhar depois
+      seed: toProfile(row),
       instanceId: credentials.instanceId,
       zapi: zapiService.createClient(credentials),
       fingerprint,
     });
-    console.log(`[${row.id}] Clinica do painel ${current ? 'atualizada' : 'carregada'}`);
+    console.log(`[${row.id}] Consultorio ${current ? 'atualizado' : 'carregado'}`);
   }
 
-  // Removidas do banco ou sem WhatsApp
+  // Desativados, removidos ou sem WhatsApp
   for (const id of clinics.keys()) {
-    if (!fileClinicIds.has(id) && !seen.has(id)) {
+    if (!seen.has(id)) {
       clinics.delete(id);
-      console.log(`[${id}] Clinica do painel removida do bot`);
+      console.log(`[${id}] Consultorio removido do bot (desativado ou sem WhatsApp)`);
     }
   }
 }
 
-// Cria no banco as clinicas que ainda nao existem (a partir do config.json)
-if (db.enabled) {
-  Promise.all(
-    [...clinics.values()].map(({ id, seed }) =>
-      db.query('INSERT IGNORE INTO clinics (id, name, type, settings) VALUES (?, ?, ?, ?)', [
-        id,
-        seed.name,
-        seed.type,
-        JSON.stringify(seed.settings),
-      ])
-    )
-  ).catch((error) => console.error('Erro ao cadastrar clinicas no banco:', error.message));
-}
-
-if (db.enabled) {
-  const refresh = () => refreshDbClinics().catch((error) => console.error('Erro ao carregar clinicas do banco:', error.message));
-  db.ready.then(refresh);
-  setInterval(refresh, DB_CLINICS_REFRESH_MS).unref();
-}
+const refresh = () => refreshClinics().catch((error) => console.error('Erro ao carregar consultorios do banco:', error.message));
+const loaded = db.ready.then(refresh);
+setInterval(refresh, DB_CLINICS_REFRESH_MS).unref();
 
 const profileCache = new Map();
 
 /**
  * Perfil atual da clinica: { name, type, settings } (settings: professional, services, instagram, notes, schedule).
- * Vem do banco (cache de 30s); se o banco falhar ou o perfil salvo for invalido, usa o config.json.
+ * Vem do banco (cache de 30s); se a leitura falhar ou o perfil salvo for invalido, usa o ultimo perfil valido.
  */
 async function getProfile(clinic) {
   const cached = profileCache.get(clinic.id);
   if (cached && Date.now() - cached.at < SETTINGS_CACHE_MS) return cached.profile;
 
-  let profile = clinic.seed;
-  if (db.enabled) {
-    try {
-      const [row] = await db.query('SELECT name, type, settings FROM clinics WHERE id = ?', [clinic.id]);
-      if (row) {
-        const fromDb = { name: row.name, type: row.type, settings: { ...row.settings, schedule: agenda.withDefaults(row.settings.schedule) } };
-        const problems = validateProfile(fromDb);
-        if (problems.length) console.error(`[${clinic.id}] Configuracao do banco invalida (${problems.join(', ')}), usando config.json`);
-        else profile = fromDb;
-      }
-    } catch (error) {
-      console.error(`[${clinic.id}] Erro ao ler configuracao, usando config.json:`, error.message);
+  let profile = cached?.profile || clinic.seed;
+  try {
+    const [row] = await db.query('SELECT name, type, settings FROM clinics WHERE id = ?', [clinic.id]);
+    if (row) {
+      const fromDb = toProfile(row);
+      const problems = validateProfile(fromDb);
+      if (problems.length) console.error(`[${clinic.id}] Configuracao do banco invalida (${problems.join(', ')}), usando a anterior`);
+      else profile = fromDb;
     }
+  } catch (error) {
+    console.error(`[${clinic.id}] Erro ao ler configuracao, usando a anterior:`, error.message);
   }
 
   profileCache.set(clinic.id, { profile, at: Date.now() });
   return profile;
 }
 
-// Clinica desativada no painel: o bot nao atende (webhook responde 404)
 function getClinic(id) {
-  return inactiveIds.has(id) ? undefined : clinics.get(id);
+  return clinics.get(id);
 }
 
 // A Z-API envia o instanceId no webhook; serve para achar o consultorio
 function findByInstanceId(instanceId) {
   for (const clinic of clinics.values()) {
-    if (clinic.instanceId === instanceId && !inactiveIds.has(clinic.id)) return clinic;
+    if (clinic.instanceId === instanceId) return clinic;
   }
   return undefined;
 }
 
 function listClinics() {
-  return [...clinics.values()]
-    .filter(({ id }) => !inactiveIds.has(id))
-    .map(({ id, name, type, model }) => ({ id, name, type, model }));
+  return [...clinics.values()].map(({ id, name, type, model }) => ({ id, name, type, model }));
 }
 
 module.exports = {
   CLINIC_TYPES,
+  loaded,
   getClinic,
   findByInstanceId,
   listClinics,

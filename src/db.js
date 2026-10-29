@@ -2,7 +2,7 @@ const mysql = require('mysql2/promise');
 
 // MySQL (DigitalOcean): uso do bot, configuracao das clinicas, usuarios do painel e agenda.
 // DATABASE_URL=mysql://usuario:senha@host:porta/banco (o banco gerenciado exige SSL).
-// Sem DATABASE_URL o bot funciona so com o config.json, sem agenda e sem registro de uso.
+// Obrigatorio: os consultorios (e o WhatsApp de cada um) ficam na tabela clinics.
 const DATABASE_URL = process.env.DATABASE_URL;
 
 const pool = DATABASE_URL

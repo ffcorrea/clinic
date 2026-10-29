@@ -41,10 +41,7 @@ export default async function ClinicPage({ params, searchParams }) {
         <h2>WhatsApp</h2>
         {credentialsError && <div className="alert error">{credentialsError}</div>}
         {!credentials && !credentialsError && (
-          <p className="muted">
-            {info?.has_whatsapp ? '' : 'Sem credenciais cadastradas no painel. '}
-            Clínicas antigas usam as variáveis de ambiente do servidor; cadastrar aqui passa a valer no lugar delas só para clínicas criadas pelo painel.
-          </p>
+          <p className="muted">Sem WhatsApp cadastrado: o bot não atende esta clínica até você informar as credenciais da Z-API.</p>
         )}
         {status && (
           <div className="whatsapp-status">

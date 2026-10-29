@@ -99,7 +99,7 @@ export default async function ClinicsPage({ searchParams }) {
                     <div className="muted small">{c.id}</div>
                   </td>
                   <td>{TYPE_LABEL[c.type] || c.type}</td>
-                  <td>{c.has_whatsapp ? 'Cadastrado no painel' : 'Variáveis de ambiente / não cadastrado'}</td>
+                  <td>{c.has_whatsapp ? 'Cadastrado' : 'Não cadastrado (bot não atende)'}</td>
                   <td className="num">{c.users}</td>
                   <td>{c.active ? 'Ativa' : 'Desativada'}</td>
                 </tr>

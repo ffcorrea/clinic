@@ -37,7 +37,9 @@ app.post('/zapi/webhook', requireSecret, zapiRoutes.webhookByInstance);
 app.use('/agent/:clinicId', agentRoutes);
 app.use('/zapi/:clinicId', zapiRoutes);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+// Start server (depois de carregar os consultorios do banco, para o webhook ja encontrar todos)
+clinicService.loaded.then(() => {
+  app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+  });
 });

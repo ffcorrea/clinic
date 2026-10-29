@@ -63,6 +63,19 @@ const SCHEMA = [
     KEY appointments_clinic_idx (clinic_id, starts_at),
     KEY appointments_phone_idx (clinic_id, phone)
   )`,
+  // Recados do bot para a recepcao (valores, procedimento fora da lista, convenio, urgencia...)
+  `CREATE TABLE IF NOT EXISTS contact_requests (
+    id           bigint unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    clinic_id    varchar(100) NOT NULL,
+    phone        varchar(30),
+    patient_name varchar(255),
+    reason       varchar(30) NOT NULL COMMENT 'valores | procedimento | convenio | urgencia | outro',
+    details      text,
+    status       varchar(20) NOT NULL DEFAULT 'open' COMMENT 'open | done',
+    created_at   datetime NOT NULL DEFAULT (UTC_TIMESTAMP()),
+    resolved_at  datetime,
+    KEY contact_requests_clinic_idx (clinic_id, status, created_at)
+  )`,
 ];
 
 // Colunas adicionadas depois da criacao das tabelas (MySQL 8 nao tem ADD COLUMN IF NOT EXISTS)

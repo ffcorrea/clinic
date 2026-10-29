@@ -35,6 +35,8 @@ Next.js em `dashboard/`, servido pelo bot em `/painel`. Login por e-mail e senha
   O bot tambem marca e cancela pelo WhatsApp (aparece como "Bot").
   "Bloquear horario": fecha um periodo em um ou mais dias (compromisso, ausencia) ou dias inteiros;
   o bot nao oferece horario bloqueado. Almoco fixo vai no expediente da Configuracao (09:00-12:00, 13:00-18:00).
+- **Recados** - o que o bot anotou para a recepcao responder (valores, procedimento fora da lista, convenio,
+  urgencia), com link para o WhatsApp do paciente e botao "Resolvido". O menu mostra quantos estao em aberto.
 - **Configuracao** - nome, tipo, profissional, tratamentos, Instagram, observacoes e a agenda
   (expediente por dia, duracao padrao, antecedencia, dias bloqueados).
   Cada tratamento pode ter duracao propria (tabela na tela). Os horarios oferecidos seguem a duracao do
@@ -47,7 +49,7 @@ Next.js em `dashboard/`, servido pelo bot em `/painel`. Login por e-mail e senha
 Primeiro acesso: com o banco sem usuarios, entre com `DASHBOARD_USER` / `DASHBOARD_PASSWORD`; isso cria o
 primeiro administrador. Depois os logins sao gerenciados em Usuarios.
 
-O bot cria as tabelas sozinho ao iniciar (`usage_events`, `clinics`, `users`, `appointments`). Todos os
+O bot cria as tabelas sozinho ao iniciar (`usage_events`, `clinics`, `users`, `appointments`, `contact_requests`). Todos os
 consultorios ficam na tabela `clinics` (nao ha mais arquivos de configuracao); o bot le a tabela a cada 30s.
 
 Variaveis:

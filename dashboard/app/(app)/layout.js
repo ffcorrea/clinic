@@ -4,6 +4,7 @@ import { logout, selectClinic } from '../actions';
 import { requireSession } from '../../lib/auth';
 import { listClinics } from '../../lib/clinics';
 import { currentClinicId } from '../../lib/current';
+import { countOpen } from '../../lib/requests';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ export default async function AppLayout({ children }) {
       <header className="nav">
         <div className="nav-inner">
           <strong className="brand">{isAdmin ? 'Painel' : clinicName}</strong>
-          <NavLinks isAdmin={isAdmin} />
+          <NavLinks isAdmin={isAdmin} openRequests={await countOpen(clinicId)} />
           <div className="nav-right">
             {isAdmin && clinics.length > 0 && (
               <form action={selectClinic} className="clinic-select">

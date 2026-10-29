@@ -16,6 +16,7 @@ import {
   saveWhatsapp,
   setClinicActive,
 } from '../lib/clinics';
+import { setRequestStatus } from '../lib/requests';
 import { setupWebhook } from '../lib/zapi';
 import { addDays, isIsoDate, isTime } from '../lib/time';
 import { currentClinicId } from '../lib/current';
@@ -126,6 +127,14 @@ export async function unblockDay(formData) {
   const blockedDates = (schedule.blockedDates || []).filter((d) => d !== date);
   await saveClinic(clinicId, { name: clinic.name, type: clinic.type, settings: { ...clinic.settings, schedule: { ...schedule, blockedDates } } });
   redirect(withMessage(back, 'ok', `Dia ${date.split('-').reverse().join('/')} desbloqueado. O bot volta a oferecer horários nele em até 1 minuto.`));
+}
+
+// ---- Recados ----
+
+export async function resolveRequest(formData) {
+  const clinicId = await clinicOf();
+  await setRequestStatus(clinicId, Number(formData.get('id')), String(formData.get('status')));
+  redirect(String(formData.get('back') || '/recados'));
 }
 
 // ---- Configuracao ----

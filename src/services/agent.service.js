@@ -1,6 +1,7 @@
 const axios = require('axios');
 const db = require('../db');
 const agenda = require('./agenda.service');
+const requests = require('./requests.service');
 const clinicService = require('./clinic.service');
 const time = require('../lib/time');
 
@@ -56,6 +57,23 @@ function buildTools(profile) {
             procedimento,
           },
           required: ['data', 'hora', 'nome_paciente'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'anotar_para_recepcao',
+        description:
+          'Deixa um recado para a recepcao da clinica entrar em contato com o paciente (valores, procedimento fora da lista, convenio, urgencia ou outro pedido que voce nao resolve). Use SEMPRE antes de dizer que a recepcao vai entrar em contato.',
+        parameters: {
+          type: 'object',
+          properties: {
+            motivo: { type: 'string', enum: requests.REASONS, description: 'Assunto do recado' },
+            detalhe: { type: 'string', description: 'O que o paciente pediu, em uma frase (ex: "quer saber o valor do clareamento")' },
+            nome_paciente: { type: 'string', description: 'Nome do paciente, se ja souber' },
+          },
+          required: ['motivo', 'detalhe'],
         },
       },
     },
@@ -119,6 +137,11 @@ async function runTool(clinic, profile, phone, name, args) {
     return result.ok
       ? { agendado: true, id: result.appointment.id, quando: result.appointment.label }
       : { agendado: false, motivo: result.reason, aviso: 'Nao foi marcado. Verifique outros horarios livres.' };
+  }
+
+  if (name === 'anotar_para_recepcao') {
+    await requests.create(clinic.id, { phone, patientName: args.nome_paciente, reason: args.motivo, details: args.detalhe });
+    return { anotado: true };
   }
 
   if (name === 'cancelar_consulta') {

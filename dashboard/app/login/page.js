@@ -15,8 +15,8 @@ export default async function LoginPage({ searchParams }) {
         <p className="muted">Painel da clínica: agenda e atendimento do WhatsApp</p>
         {erro && <div className="alert error">{erro}</div>}
         <label>
-          E-mail
-          <input name="email" type="text" autoComplete="username" required autoFocus />
+          Usuário
+          <input name="email" type="text" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} required autoFocus />
         </label>
         <label>
           Senha

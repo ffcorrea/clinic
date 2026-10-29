@@ -29,7 +29,7 @@ export async function login(formData) {
   const email = String(formData.get('email') || '').trim().toLowerCase();
   const password = String(formData.get('password') || '');
   const userId = email && password ? await authenticate(email, password) : null;
-  if (!userId) redirect(withMessage('/login', 'erro', 'E-mail ou senha incorretos.'));
+  if (!userId) redirect(withMessage('/login', 'erro', 'Usuário ou senha incorretos.'));
   await startSession(userId);
   redirect('/agenda');
 }
@@ -202,12 +202,16 @@ export async function changeOwnPassword(formData) {
 export async function createUser(formData) {
   await requireSession({ admin: true });
   const name = String(formData.get('name') || '').trim();
+  // Login: qualquer nome de usuario (ou e-mail). Fica na coluna "email" da tabela users.
   const email = String(formData.get('email') || '').trim().toLowerCase();
   const password = String(formData.get('password') || '');
   const role = formData.get('role') === 'admin' ? 'admin' : 'clinic';
   const clinicId = role === 'clinic' ? String(formData.get('clinic') || '') : null;
 
-  if (!name || !email) redirect(withMessage('/usuarios', 'erro', 'Informe nome e e-mail.'));
+  if (!name || !email) redirect(withMessage('/usuarios', 'erro', 'Informe nome e usuário.'));
+  if (!/^[a-z0-9._@-]{3,60}$/.test(email)) {
+    redirect(withMessage('/usuarios', 'erro', 'Usuário inválido: use de 3 a 60 letras, números, ponto, hífen, _ ou @ (sem espaços e acentos).'));
+  }
   if (password.length < 8) redirect(withMessage('/usuarios', 'erro', 'A senha precisa ter pelo menos 8 caracteres.'));
   if (role === 'clinic' && !(await listClinics()).some((c) => c.id === clinicId)) {
     redirect(withMessage('/usuarios', 'erro', 'Escolha a clínica do usuário.'));
@@ -222,7 +226,7 @@ export async function createUser(formData) {
       clinicId,
     ]);
   } catch (error) {
-    if (error.code === 'ER_DUP_ENTRY') redirect(withMessage('/usuarios', 'erro', 'Já existe um usuário com esse e-mail.'));
+    if (error.code === 'ER_DUP_ENTRY') redirect(withMessage('/usuarios', 'erro', 'Já existe esse usuário. Escolha outro.'));
     throw error;
   }
   redirect(withMessage('/usuarios', 'ok', `Usuário ${email} criado.`));

@@ -29,8 +29,9 @@ export default async function UsersPage({ searchParams }) {
             <input name="name" required />
           </label>
           <label>
-            E-mail (login)
-            <input name="email" type="email" required />
+            Usuário (login)
+            <input name="email" required autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="glaucia" pattern="[A-Za-z0-9._@\-]{3,60}" />
+            <span className="hint">Sem espaços nem acentos. Pode ser um e-mail.</span>
           </label>
           <label>
             Senha inicial
@@ -63,7 +64,7 @@ export default async function UsersPage({ searchParams }) {
             <thead>
               <tr>
                 <th>Nome</th>
-                <th>E-mail</th>
+                <th>Usuário</th>
                 <th>Perfil</th>
                 <th>Situação</th>
                 <th>Nova senha</th>

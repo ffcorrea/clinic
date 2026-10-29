@@ -1,5 +1,6 @@
 import { changeRole, createUser, resetPassword, toggleUser } from '../../actions';
 import Flash from '../../flash';
+import RoleSelect from './role-select';
 import { requireSession } from '../../../lib/auth';
 import { listClinics } from '../../../lib/clinics';
 import { pool } from '../../../lib/db';
@@ -107,12 +108,7 @@ export default async function UsersPage({ searchParams }) {
                       {editable ? (
                         <form action={changeRole} className="inline-form">
                           <input type="hidden" name="id" value={u.id} />
-                          <select name="role" defaultValue={u.role} aria-label="Perfil">
-                            {(isAdmin && !u.clinic_id ? ['admin'] : roleOptions).map((r) => (
-                              <option key={r} value={r}>{ROLE_LABEL[r]}</option>
-                            ))}
-                          </select>
-                          <button type="submit" className="secondary">Mudar</button>
+                          <RoleSelect value={u.role} options={isAdmin && !u.clinic_id ? ['admin'] : roleOptions} labels={ROLE_LABEL} />
                         </form>
                       ) : (
                         ROLE_LABEL[u.role] || u.role

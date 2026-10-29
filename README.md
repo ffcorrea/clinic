@@ -8,7 +8,17 @@ Cada tipo tem um modelo de prompt em `src/prompts/`: `odontologica.md`, `medica.
 Os `{{campos}}` do modelo sao preenchidos pelo bloco `prompt` do `config.json` de cada consultorio.
 Para criar um tipo novo, adicione `src/prompts/<tipo>.md`.
 
-## Adicionar um consultorio
+## Adicionar um consultorio pelo painel (recomendado)
+
+Como admin, em **Clinicas → Nova clinica**: nome, tipo, profissional, Instagram, tratamentos e as credenciais
+da Z-API (ID da instancia, token e Client-Token, guardados criptografados no banco). Depois, na pagina da
+clinica: leia o QR Code se o numero estiver desconectado, clique em **Conectar webhook** (pelo painel publicado)
+e ajuste a Configuracao. O bot passa a atender em ate 1 minuto, sem deploy. Desativar a clinica para o bot.
+
+Defina `CREDENTIALS_KEY` (um texto longo e aleatorio) nas variaveis do servidor antes de cadastrar a primeira
+clinica. Sem ela a chave e derivada do `WEBHOOK_SECRET`; trocar a chave depois exige cadastrar os tokens de novo.
+
+## Adicionar um consultorio pelo codigo
 
 1. Crie a pasta `src/clinics/<id>/` (o `<id>` vai na URL, ex: `instituto-lirium`).
 2. Crie `config.json`:

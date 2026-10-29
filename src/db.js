@@ -65,8 +65,33 @@ const SCHEMA = [
   )`,
 ];
 
+// Colunas adicionadas depois da criacao das tabelas (MySQL 8 nao tem ADD COLUMN IF NOT EXISTS)
+const COLUMNS = {
+  clinics: {
+    // Clinicas cadastradas pelo painel: WhatsApp (Z-API) no banco; tokens criptografados (src/lib/secret-box.js)
+    zapi_instance_id: 'varchar(100)',
+    zapi_token: 'text',
+    zapi_client_token: 'text',
+    active: 'tinyint(1) NOT NULL DEFAULT 1',
+  },
+};
+
+async function addMissingColumns() {
+  for (const [table, columns] of Object.entries(COLUMNS)) {
+    const [rows] = await pool.query(
+      'SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+      [table]
+    );
+    const existing = new Set(rows.map((r) => r.name));
+    for (const [column, definition] of Object.entries(columns)) {
+      if (!existing.has(column)) await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  }
+}
+
 async function createSchema() {
   for (const statement of SCHEMA) await pool.query(statement);
+  await addMissingColumns();
 }
 
 const ready = pool

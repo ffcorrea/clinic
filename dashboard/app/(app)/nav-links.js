@@ -9,7 +9,7 @@ export default function NavLinks({ isAdmin }) {
   const links = [
     ['/agenda', 'Agenda'],
     ['/configuracao', 'Configuração'],
-    ...(isAdmin ? [['/uso', 'Uso e custos'], ['/usuarios', 'Usuários']] : []),
+    ...(isAdmin ? [['/clinicas', 'Clínicas'], ['/uso', 'Uso e custos'], ['/usuarios', 'Usuários']] : []),
   ];
 
   return (

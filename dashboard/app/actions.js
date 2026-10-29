@@ -1,10 +1,22 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { authenticate, endSession, hashPassword, requireSession, startSession, verifyPassword } from '../lib/auth';
 import { createAppointment, createBlock, parseAppointmentForm, setStatus, updateAppointment } from '../lib/appointments';
-import { getClinic, listClinics, parseConfigForm, saveClinic } from '../lib/clinics';
+import {
+  createClinic,
+  getClinic,
+  getCredentials,
+  listClinics,
+  parseConfigForm,
+  parseNewClinicForm,
+  parseWhatsapp,
+  saveClinic,
+  saveWhatsapp,
+  setClinicActive,
+} from '../lib/clinics';
+import { setupWebhook } from '../lib/zapi';
 import { addDays, isIsoDate, isTime } from '../lib/time';
 import { currentClinicId } from '../lib/current';
 import { pool } from '../lib/db';
@@ -112,6 +124,60 @@ export async function saveConfig(formData) {
   if (error) redirect(withMessage('/configuracao', 'erro', error));
   await saveClinic(clinicId, profile);
   redirect(withMessage('/configuracao', 'ok', 'Configuração salva. O bot passa a usar em até 1 minuto.'));
+}
+
+// ---- Clinicas (so admin) ----
+
+export async function createClinicAction(formData) {
+  await requireSession({ admin: true });
+  const { clinic, error } = parseNewClinicForm(formData);
+  if (error) redirect(withMessage('/clinicas', 'erro', error));
+  const problem = await createClinic(clinic);
+  if (problem) redirect(withMessage('/clinicas', 'erro', problem));
+  redirect(withMessage(`/clinicas/${clinic.id}`, 'ok', `Clínica ${clinic.name} criada. Confira o WhatsApp abaixo e depois a Configuração (expediente e tratamentos).`));
+}
+
+export async function saveWhatsappAction(formData) {
+  await requireSession({ admin: true });
+  const id = String(formData.get('id') || '');
+  const back = `/clinicas/${id}`;
+  const { credentials, error } = parseWhatsapp(formData, { required: true });
+  if (error) redirect(withMessage(back, 'erro', error));
+  const problem = await saveWhatsapp(id, credentials);
+  if (problem) redirect(withMessage(back, 'erro', problem));
+  redirect(withMessage(back, 'ok', 'WhatsApp salvo. O bot passa a usar em até 1 minuto.'));
+}
+
+export async function toggleClinicAction(formData) {
+  await requireSession({ admin: true });
+  const id = String(formData.get('id') || '');
+  const active = formData.get('active') === '1';
+  await setClinicActive(id, active);
+  redirect(withMessage(`/clinicas/${id}`, 'ok', active ? 'Clínica ativada: o bot volta a atender.' : 'Clínica desativada: o bot para de atender esse número.'));
+}
+
+// Aponta o webhook da Z-API para este servidor (precisa ser o painel publicado, nao localhost)
+export async function connectWebhookAction(formData) {
+  await requireSession({ admin: true });
+  const id = String(formData.get('id') || '');
+  const back = `/clinicas/${id}`;
+  const h = await headers();
+  const host = h.get('x-forwarded-host') || h.get('host') || '';
+  const proto = h.get('x-forwarded-proto') || 'https';
+  if (/^(localhost|127\.|0\.0\.0\.0)/.test(host)) {
+    redirect(withMessage(back, 'erro', 'Conecte pelo painel publicado (a Z-API não consegue chamar o localhost).'));
+  }
+  const credentials = await getCredentials(id);
+  if (!credentials) redirect(withMessage(back, 'erro', 'Cadastre as credenciais da Z-API primeiro.'));
+
+  const secret = process.env.WEBHOOK_SECRET;
+  const webhookUrl = `${proto}://${host}/zapi/${id}/webhook${secret ? `?token=${encodeURIComponent(secret)}` : ''}`;
+  try {
+    await setupWebhook(credentials, webhookUrl);
+  } catch (error) {
+    redirect(withMessage(back, 'erro', `A Z-API recusou: ${error.message}`));
+  }
+  redirect(withMessage(back, 'ok', 'Webhook configurado: as mensagens desse número agora chegam ao bot.'));
 }
 
 // ---- Minha conta (qualquer usuario) ----

@@ -417,3 +417,7 @@ main.wide { max-width: 1400px; }
 .dot.off { background: var(--danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 20%, transparent); }
 .qr { display: block; width: 240px; height: 240px; margin: 0 0 18px; border-radius: 14px; background: #fff; padding: 8px; }
 .webhook-form { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+
+/* ---- Dias bloqueados (agenda) ---- */
+.blocked-days { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding: 14px 20px; }
+.blocked-day { display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 12px; border-radius: 999px; background: var(--fill); font-variant-numeric: tabular-nums; font-weight: 500; }

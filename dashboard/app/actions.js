@@ -116,6 +116,18 @@ export async function saveBlock(formData) {
   redirect(withMessage(back, 'ok', `Horário bloqueado (${start}–${end}${dates.length > 1 ? `, ${dates.length} dias` : ''}).`));
 }
 
+// Tira um dia dos "Dias sem atendimento" (desfaz o bloqueio de dia inteiro)
+export async function unblockDay(formData) {
+  const clinicId = await clinicOf();
+  const back = String(formData.get('back') || '/agenda');
+  const date = String(formData.get('date') || '');
+  const clinic = await getClinic(clinicId);
+  const schedule = clinic.settings.schedule || {};
+  const blockedDates = (schedule.blockedDates || []).filter((d) => d !== date);
+  await saveClinic(clinicId, { name: clinic.name, type: clinic.type, settings: { ...clinic.settings, schedule: { ...schedule, blockedDates } } });
+  redirect(withMessage(back, 'ok', `Dia ${date.split('-').reverse().join('/')} desbloqueado. O bot volta a oferecer horários nele em até 1 minuto.`));
+}
+
 // ---- Configuracao ----
 
 export async function saveConfig(formData) {

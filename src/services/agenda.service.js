@@ -170,6 +170,19 @@ async function upcoming(clinicId, phone) {
   return rows.map((r) => ({ id: r.id, label: time.describe(r.starts_at), service: r.service }));
 }
 
+// Consultas futuras do paciente canceladas nos ultimos dias (pelo paciente ou pela clinica), para o bot
+// nao confiar no historico da conversa quando a recepcao cancelou pelo painel
+async function recentlyCancelled(clinicId, phone) {
+  const rows = await db.query(
+    `SELECT id, starts_at, service FROM appointments
+      WHERE clinic_id = ? AND phone = ? AND status = 'cancelled' AND starts_at > UTC_TIMESTAMP()
+        AND updated_at > UTC_TIMESTAMP() - INTERVAL 7 DAY
+      ORDER BY starts_at LIMIT 5`,
+    [clinicId, phone]
+  );
+  return rows.map((r) => ({ id: r.id, label: time.describe(r.starts_at), service: r.service }));
+}
+
 // Cancela uma consulta futura, so se for do proprio paciente
 async function cancel(clinicId, phone, id) {
   const result = await db.query(
@@ -209,4 +222,4 @@ function hoursText(rawSchedule) {
     .join('; ');
 }
 
-module.exports = { DEFAULT_SCHEDULE, withDefaults, serviceList, durationFor, freeSlots, book, upcoming, cancel, hoursText, daySlots };
+module.exports = { DEFAULT_SCHEDULE, withDefaults, serviceList, durationFor, freeSlots, book, upcoming, recentlyCancelled, cancel, hoursText, daySlots };

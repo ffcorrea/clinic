@@ -150,12 +150,17 @@ async function buildContext(clinic, phone, agendaOn) {
     return lines.join('\n');
   }
 
-  const upcoming = await agenda.upcoming(clinic.id, phone);
+  const [upcoming, cancelled] = await Promise.all([agenda.upcoming(clinic.id, phone), agenda.recentlyCancelled(clinic.id, phone)]);
+  const describe = (a) => `- id ${a.id}: ${a.label}${a.service ? ` (${a.service})` : ''}`;
   lines.push(
-    upcoming.length
-      ? `Consultas já marcadas deste paciente:\n${upcoming.map((a) => `- id ${a.id}: ${a.label}${a.service ? ` (${a.service})` : ''}`).join('\n')}`
-      : 'Este paciente não tem consultas marcadas.'
+    'Agenda deste paciente agora (vale mais que o histórico da conversa: a recepção pode ter cancelado ou remarcado pelo painel):',
+    upcoming.length ? `Consultas marcadas:\n${upcoming.map(describe).join('\n')}` : 'Consultas marcadas: nenhuma.'
   );
+  if (cancelled.length) {
+    lines.push(
+      `Canceladas (pela clínica ou pelo paciente; NÃO estão mais marcadas e NÃO devem ser marcadas de novo sem o paciente pedir um novo horário):\n${cancelled.map(describe).join('\n')}`
+    );
+  }
   return lines.join('\n');
 }
 

@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { authenticate, endSession, hashPassword, requireSession, startSession } from '../lib/auth';
+import { authenticate, endSession, hashPassword, requireSession, startSession, verifyPassword } from '../lib/auth';
 import { createAppointment, createBlock, parseAppointmentForm, setStatus, updateAppointment } from '../lib/appointments';
 import { getClinic, listClinics, parseConfigForm, saveClinic } from '../lib/clinics';
 import { addDays, isIsoDate, isTime } from '../lib/time';
@@ -112,6 +112,23 @@ export async function saveConfig(formData) {
   if (error) redirect(withMessage('/configuracao', 'erro', error));
   await saveClinic(clinicId, profile);
   redirect(withMessage('/configuracao', 'ok', 'Configuração salva. O bot passa a usar em até 1 minuto.'));
+}
+
+// ---- Minha conta (qualquer usuario) ----
+
+export async function changeOwnPassword(formData) {
+  const me = await requireSession();
+  const current = String(formData.get('current') || '');
+  const password = String(formData.get('password') || '');
+  const fail = (message) => redirect(withMessage('/conta', 'erro', message));
+
+  const [[row]] = await pool.query('SELECT password_hash FROM users WHERE id = ?', [me.id]);
+  if (!row || !verifyPassword(current, row.password_hash)) fail('Senha atual incorreta.');
+  if (password.length < 8) fail('A nova senha precisa ter pelo menos 8 caracteres.');
+  if (password !== String(formData.get('confirm') || '')) fail('As duas senhas novas não são iguais.');
+
+  await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), me.id]);
+  redirect(withMessage('/conta', 'ok', 'Senha alterada.'));
 }
 
 // ---- Usuarios (so admin) ----

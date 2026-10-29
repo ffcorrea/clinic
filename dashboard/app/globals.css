@@ -403,3 +403,7 @@ main.wide { max-width: 1400px; }
   border-left-color: var(--separator);
 }
 .event.source-block .event-time { color: var(--muted); }
+
+/* ---- Conta ---- */
+.account-link { color: var(--muted); font-size: 13px; font-weight: 500; padding: 6px 4px; }
+.account-link:hover { color: var(--text); text-decoration: none; }

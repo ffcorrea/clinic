@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import NavLinks from './nav-links';
 import { logout, selectClinic } from '../actions';
 import { requireSession } from '../../lib/auth';
@@ -30,8 +31,9 @@ export default async function AppLayout({ children }) {
                 <button type="submit" className="secondary">Trocar</button>
               </form>
             )}
+            <Link href="/conta" className="account-link" title={user.email}>{user.name}</Link>
             <form action={logout}>
-              <button type="submit" className="link" title={user.email}>Sair</button>
+              <button type="submit" className="link">Sair</button>
             </form>
           </div>
         </div>

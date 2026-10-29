@@ -1,7 +1,8 @@
 import { saveConfig } from '../../actions';
 import Flash from '../../flash';
 import { requireSession } from '../../../lib/auth';
-import { CLINIC_TYPES, getClinic, servicesToText } from '../../../lib/clinics';
+import ServicesEditor from './services-editor';
+import { CLINIC_TYPES, getClinic, serviceList } from '../../../lib/clinics';
 import { currentClinicId } from '../../../lib/current';
 import { WEEKDAYS } from '../../../lib/time';
 
@@ -52,14 +53,14 @@ export default async function ConfigPage({ searchParams }) {
               Instagram
               <input name="instagram" defaultValue={s.instagram} placeholder="@clinica" required />
             </label>
-            <label className="span-3">
-              Tratamentos e serviços (um por linha)
-              <textarea name="services" rows="10" defaultValue={servicesToText(s)} placeholder={'Limpeza e profilaxia\nClareamento dental | 90'} required />
+            <div className="span-3 field">
+              <span className="field-label">Tratamentos e serviços</span>
+              <ServicesEditor initial={serviceList(s)} />
               <span className="hint">
-                Para um tempo de consulta diferente do padrão, coloque “| minutos” no fim da linha, ex: <code>Clareamento dental | 90</code>.
-                O bot só confirma o que está nesta lista; o resto ele passa para a recepção confirmar.
+                Duração em branco = a duração padrão da consulta (seção Agenda). O bot só oferece horários em que o
+                tratamento cabe inteiro, e só confirma o que está nesta lista; o resto ele passa para a recepção confirmar.
               </span>
-            </label>
+            </div>
             <label className="span-3">
               Observações para o bot (uma por linha, opcional)
               <textarea name="notes" rows="3" defaultValue={(s.notes || []).join('\n')} placeholder="Estacionamento no local." />
@@ -85,7 +86,7 @@ export default async function ConfigPage({ searchParams }) {
             <label>
               Duração padrão da consulta (min)
               <input type="number" name="slotMinutes" min="10" max="480" step="5" defaultValue={schedule.slotMinutes ?? 60} required />
-              <span className="hint">Para tratamentos sem “| minutos”.</span>
+              <span className="hint">Para tratamentos sem duração própria.</span>
             </label>
             <label>
               Horários de início a cada (min)

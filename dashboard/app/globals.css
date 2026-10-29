@@ -320,3 +320,12 @@ main.wide { max-width: 1400px; }
 .legend.status-done::before { --c: var(--ok); --c-soft: var(--ok-soft); }
 .legend.status-no_show::before { --c: var(--danger); --c-soft: var(--danger-soft); }
 .legend.status-cancelled::before { --c: var(--muted); --c-soft: var(--bg); }
+
+/* ---- Tratamentos (configuracao) ---- */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 12px; color: var(--muted); }
+.services-editor { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.services-head, .services-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px 36px; gap: 8px; width: 100%; }
+.services-head span { font-size: 11px; color: var(--muted); }
+.services-row input { width: 100%; }
+.services-row button { height: 36px; padding: 0; }

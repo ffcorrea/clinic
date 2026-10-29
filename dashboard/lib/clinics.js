@@ -48,7 +48,14 @@ export function parseConfigForm(form) {
   const type = String(form.get('type') || '');
   const professional = String(form.get('professional') || '').trim();
   const instagram = String(form.get('instagram') || '').trim();
-  const serviceLines = lines(form.get('services'));
+  // Tabela: service_name[] + service_minutes[]; formato antigo: textarea "Nome | minutos"
+  const names = form.getAll('service_name');
+  const serviceLines = names.length
+    ? names
+        .map((n, i) => [String(n).trim(), String(form.getAll('service_minutes')[i] ?? '').trim()])
+        .filter(([n, m]) => n || m)
+        .map(([n, m]) => (m ? `${n} | ${m}` : n))
+    : lines(form.get('services'));
   const notes = lines(form.get('notes'));
   const blockedDates = lines(form.get('blockedDates'));
   const slotMinutes = Number(form.get('slotMinutes'));
@@ -63,14 +70,14 @@ export function parseConfigForm(form) {
   const services = [];
   for (const line of serviceLines) {
     const [name, minutesText] = line.split('|').map((part) => part.trim());
-    if (!name) return { error: `Tratamento sem nome: "${line}".` };
+    if (!name) return { error: 'Há um tratamento com duração mas sem nome.' };
     if (minutesText === undefined || minutesText === '') {
       services.push({ name, minutes: null });
       continue;
     }
     const minutes = Number(minutesText);
     if (!Number.isInteger(minutes) || minutes < 5 || minutes > 600) {
-      return { error: `Duração inválida em "${line}". Use minutos inteiros, ex: Clareamento dental | 90` };
+      return { error: `Duração inválida em "${name}": use minutos inteiros entre 5 e 600.` };
     }
     services.push({ name, minutes });
   }

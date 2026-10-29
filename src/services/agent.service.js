@@ -104,7 +104,7 @@ async function runTool(clinic, profile, phone, name, args) {
     const slots = await agenda.freeSlots(clinic.id, schedule, args.data_inicio, args.data_fim, period, duration);
     return slots.length
       ? { duracao_minutos: duration, horarios_livres: slots.map((s) => ({ data: s.date, hora: s.time, descricao: s.label })) }
-      : { horarios_livres: [], aviso: 'Nenhum horario livre nesse periodo. Ofereca verificar outras datas.' };
+      : { horarios_livres: [], aviso: 'Nenhum horario livre nesse periodo. Antes de responder, consulte de novo os proximos 7 dias no mesmo periodo e ofereca o que houver; nao pergunte de novo dia ou periodo ao paciente.' };
   }
 
   if (name === 'agendar_consulta') {

@@ -38,7 +38,7 @@ export async function endSession() {
 
 /**
  * Usuario logado (lido do banco a cada request, para valer desativacao na hora), ou null.
- * { id, email, name, role: 'admin' | 'clinic', clinicId }
+ * { id, email, name, role: 'admin' (geral) | 'clinic_admin' (admin da clinica) | 'clinic', clinicId }
  */
 export async function getSession() {
   const payload = readToken((await cookies()).get(COOKIE)?.value);

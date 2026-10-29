@@ -209,35 +209,53 @@ export async function changeOwnPassword(formData) {
   redirect(withMessage('/conta', 'ok', 'Senha alterada.'));
 }
 
-// ---- Usuarios (admin: todos; usuario de clinica: so os da propria clinica) ----
+// ---- Usuarios ----
+// Perfis: admin (administrador geral, todas as clinicas), clinic_admin (admin da clinica: gerencia os
+// usuarios da propria clinica) e clinic (usuario da clinica: so ve a lista). Tudo conferido aqui no servidor.
 
-// Usuario alvo que "me" pode gerenciar, ou null
+const ROLES = ['admin', 'clinic_admin', 'clinic'];
+
+async function requireUserManager() {
+  const me = await requireSession();
+  if (me.role !== 'admin' && me.role !== 'clinic_admin') redirect(withMessage('/usuarios', 'erro', 'Só administradores podem gerenciar usuários.'));
+  return me;
+}
+
+// Usuario que "me" pode gerenciar (admin da clinica: so da propria clinica, nunca o administrador geral)
 async function managedUser(me, id) {
   const [[user]] = await pool.query('SELECT id, role, clinic_id FROM users WHERE id = ?', [id]);
   if (!user) return null;
   if (me.role === 'admin') return user;
-  return user.role === 'clinic' && user.clinic_id === me.clinicId ? user : null;
+  return user.role !== 'admin' && user.clinic_id === me.clinicId ? user : null;
+}
+
+// Perfil e clinica pedidos, limitados ao que "me" pode dar. Retorna { role, clinicId } ou { error }.
+async function allowedRole(me, formData) {
+  const requested = ROLES.includes(formData.get('role')) ? formData.get('role') : 'clinic';
+  if (me.role !== 'admin') {
+    if (requested === 'admin') return { error: 'Só o administrador geral cria administradores gerais.' };
+    return { role: requested, clinicId: me.clinicId };
+  }
+  if (requested === 'admin') return { role: 'admin', clinicId: null };
+  const clinicId = String(formData.get('clinic') || '');
+  if (!(await listClinics()).some((c) => c.id === clinicId)) return { error: 'Escolha a clínica do usuário.' };
+  return { role: requested, clinicId };
 }
 
 export async function createUser(formData) {
-  const me = await requireSession();
-  const isAdmin = me.role === 'admin';
+  const me = await requireUserManager();
   const name = String(formData.get('name') || '').trim();
   // Login: qualquer nome de usuario (ou e-mail). Fica na coluna "email" da tabela users.
   const email = String(formData.get('email') || '').trim().toLowerCase();
   const password = String(formData.get('password') || '');
-  // Usuario de clinica so cria usuarios da propria clinica
-  const role = isAdmin && formData.get('role') === 'admin' ? 'admin' : 'clinic';
-  const clinicId = role === 'admin' ? null : isAdmin ? String(formData.get('clinic') || '') : me.clinicId;
 
   if (!name || !email) redirect(withMessage('/usuarios', 'erro', 'Informe nome e usuário.'));
   if (!/^[a-z0-9._@-]{3,60}$/.test(email)) {
     redirect(withMessage('/usuarios', 'erro', 'Usuário inválido: use de 3 a 60 letras, números, ponto, hífen, _ ou @ (sem espaços e acentos).'));
   }
   if (!password) redirect(withMessage('/usuarios', 'erro', 'Informe a senha.'));
-  if (role === 'clinic' && !(await listClinics()).some((c) => c.id === clinicId)) {
-    redirect(withMessage('/usuarios', 'erro', 'Escolha a clínica do usuário.'));
-  }
+  const { role, clinicId, error } = await allowedRole(me, formData);
+  if (error) redirect(withMessage('/usuarios', 'erro', error));
 
   try {
     await pool.query('INSERT INTO users (email, name, password_hash, role, clinic_id) VALUES (?, ?, ?, ?, ?)', [
@@ -255,7 +273,7 @@ export async function createUser(formData) {
 }
 
 export async function toggleUser(formData) {
-  const me = await requireSession();
+  const me = await requireUserManager();
   const id = Number(formData.get('id'));
   if (id === me.id) redirect(withMessage('/usuarios', 'erro', 'Você não pode desativar o próprio usuário.'));
   if (!(await managedUser(me, id))) redirect(withMessage('/usuarios', 'erro', 'Usuário não encontrado.'));
@@ -264,11 +282,26 @@ export async function toggleUser(formData) {
 }
 
 export async function resetPassword(formData) {
-  const me = await requireSession();
+  const me = await requireUserManager();
   const id = Number(formData.get('id'));
   const password = String(formData.get('password') || '');
   if (!password) redirect(withMessage('/usuarios', 'erro', 'Informe a senha.'));
   if (!(await managedUser(me, id))) redirect(withMessage('/usuarios', 'erro', 'Usuário não encontrado.'));
   await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), id]);
   redirect(withMessage('/usuarios', 'ok', 'Senha alterada.'));
+}
+
+// Muda o perfil (admin da clinica <-> usuario da clinica; admin geral tambem promove a admin geral)
+export async function changeRole(formData) {
+  const me = await requireUserManager();
+  const id = Number(formData.get('id'));
+  if (id === me.id) redirect(withMessage('/usuarios', 'erro', 'Você não pode mudar o próprio perfil.'));
+  const target = await managedUser(me, id);
+  if (!target) redirect(withMessage('/usuarios', 'erro', 'Usuário não encontrado.'));
+  const role = String(formData.get('role') || '');
+  if (!ROLES.includes(role)) redirect(withMessage('/usuarios', 'erro', 'Perfil inválido.'));
+  if (role === 'admin' && me.role !== 'admin') redirect(withMessage('/usuarios', 'erro', 'Só o administrador geral cria administradores gerais.'));
+  if (role !== 'admin' && !target.clinic_id) redirect(withMessage('/usuarios', 'erro', 'Esse usuário não tem clínica; crie um novo usuário para a clínica.'));
+  await pool.query('UPDATE users SET role = ?, clinic_id = ? WHERE id = ?', [role, role === 'admin' ? null : target.clinic_id, id]);
+  redirect(withMessage('/usuarios', 'ok', 'Perfil alterado.'));
 }

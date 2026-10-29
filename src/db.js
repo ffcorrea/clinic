@@ -41,7 +41,7 @@ const SCHEMA = [
     email         varchar(255) NOT NULL,
     name          varchar(255) NOT NULL,
     password_hash varchar(255) NOT NULL,
-    role          varchar(20) NOT NULL COMMENT 'admin | clinic',
+    role          varchar(20) NOT NULL COMMENT 'admin | clinic_admin | clinic',
     clinic_id     varchar(100),
     active        tinyint(1) NOT NULL DEFAULT 1,
     created_at    datetime NOT NULL DEFAULT (UTC_TIMESTAMP()),

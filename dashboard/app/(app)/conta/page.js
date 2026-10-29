@@ -13,7 +13,7 @@ export default async function AccountPage({ searchParams }) {
         <div>
           <h1>Minha conta</h1>
           <p className="muted">
-            {user.name} · {user.email} · {user.role === 'admin' ? 'Administrador (todas as clínicas)' : clinic?.name || user.clinicId}
+            {user.name} · {user.email} · {user.role === 'admin' ? 'Administrador geral (todas as clínicas)' : `${user.role === 'clinic_admin' ? 'Admin da clínica' : 'Usuário da clínica'} · ${clinic?.name || user.clinicId}`}
           </p>
         </div>
       </header>

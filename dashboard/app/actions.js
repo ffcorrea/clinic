@@ -190,7 +190,7 @@ export async function changeOwnPassword(formData) {
 
   const [[row]] = await pool.query('SELECT password_hash FROM users WHERE id = ?', [me.id]);
   if (!row || !verifyPassword(current, row.password_hash)) fail('Senha atual incorreta.');
-  if (password.length < 8) fail('A nova senha precisa ter pelo menos 8 caracteres.');
+  if (!password) fail('Informe a nova senha.');
   if (password !== String(formData.get('confirm') || '')) fail('As duas senhas novas não são iguais.');
 
   await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), me.id]);
@@ -212,7 +212,7 @@ export async function createUser(formData) {
   if (!/^[a-z0-9._@-]{3,60}$/.test(email)) {
     redirect(withMessage('/usuarios', 'erro', 'Usuário inválido: use de 3 a 60 letras, números, ponto, hífen, _ ou @ (sem espaços e acentos).'));
   }
-  if (password.length < 8) redirect(withMessage('/usuarios', 'erro', 'A senha precisa ter pelo menos 8 caracteres.'));
+  if (!password) redirect(withMessage('/usuarios', 'erro', 'Informe a senha.'));
   if (role === 'clinic' && !(await listClinics()).some((c) => c.id === clinicId)) {
     redirect(withMessage('/usuarios', 'erro', 'Escolha a clínica do usuário.'));
   }
@@ -243,7 +243,7 @@ export async function toggleUser(formData) {
 export async function resetPassword(formData) {
   await requireSession({ admin: true });
   const password = String(formData.get('password') || '');
-  if (password.length < 8) redirect(withMessage('/usuarios', 'erro', 'A senha precisa ter pelo menos 8 caracteres.'));
+  if (!password) redirect(withMessage('/usuarios', 'erro', 'Informe a senha.'));
   await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), Number(formData.get('id'))]);
   redirect(withMessage('/usuarios', 'ok', 'Senha alterada.'));
 }

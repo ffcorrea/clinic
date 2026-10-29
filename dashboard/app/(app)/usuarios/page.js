@@ -35,7 +35,7 @@ export default async function UsersPage({ searchParams }) {
           </label>
           <label>
             Senha inicial
-            <input name="password" type="text" minLength={8} required />
+            <input name="password" type="text" required />
           </label>
           <label>
             Perfil
@@ -81,7 +81,7 @@ export default async function UsersPage({ searchParams }) {
                   <td>
                     <form action={resetPassword} className="inline-form">
                       <input type="hidden" name="id" value={u.id} />
-                      <input name="password" type="text" minLength={8} placeholder="mín. 8 caracteres" required />
+                      <input name="password" type="text" placeholder="Nova senha" required />
                       <button type="submit" className="secondary">Alterar</button>
                     </form>
                   </td>

@@ -29,12 +29,11 @@ export default async function AccountPage({ searchParams }) {
           </label>
           <label>
             Nova senha
-            <input name="password" type="password" autoComplete="new-password" minLength={8} required />
-            <span className="hint">Pelo menos 8 caracteres.</span>
+            <input name="password" type="password" autoComplete="new-password" required />
           </label>
           <label>
             Repita a nova senha
-            <input name="confirm" type="password" autoComplete="new-password" minLength={8} required />
+            <input name="confirm" type="password" autoComplete="new-password" required />
           </label>
           <div className="span-3">
             <button type="submit">Alterar senha</button>

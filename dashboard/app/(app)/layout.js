@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import NavLinks from './nav-links';
 import { logout, selectClinic } from '../actions';
 import { requireSession } from '../../lib/auth';
 import { listClinics } from '../../lib/clinics';
@@ -18,12 +18,7 @@ export default async function AppLayout({ children }) {
       <header className="nav">
         <div className="nav-inner">
           <strong className="brand">{isAdmin ? 'Painel' : clinicName}</strong>
-          <nav>
-            <Link href="/agenda">Agenda</Link>
-            <Link href="/configuracao">Configuração</Link>
-            {isAdmin && <Link href="/uso">Uso e custos</Link>}
-            {isAdmin && <Link href="/usuarios">Usuários</Link>}
-          </nav>
+          <NavLinks isAdmin={isAdmin} />
           <div className="nav-right">
             {isAdmin && clinics.length > 0 && (
               <form action={selectClinic} className="clinic-select">

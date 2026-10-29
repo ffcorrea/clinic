@@ -59,7 +59,6 @@ export function parseConfigForm(form) {
   const notes = lines(form.get('notes'));
   const blockedDates = lines(form.get('blockedDates'));
   const slotMinutes = Number(form.get('slotMinutes'));
-  const stepMinutes = Number(form.get('stepMinutes'));
   const minNoticeHours = Number(form.get('minNoticeHours'));
   const horizonDays = Number(form.get('horizonDays'));
 
@@ -83,7 +82,6 @@ export function parseConfigForm(form) {
   }
   if (!instagram) return { error: 'Informe o Instagram.' };
   if (!Number.isInteger(slotMinutes) || slotMinutes < 10 || slotMinutes > 480) return { error: 'Duração da consulta deve ser entre 10 e 480 minutos.' };
-  if (!Number.isInteger(stepMinutes) || stepMinutes < 5 || stepMinutes > 240) return { error: 'Intervalo entre horários deve ser entre 5 e 240 minutos.' };
   if (!Number.isInteger(minNoticeHours) || minNoticeHours < 0 || minNoticeHours > 720) return { error: 'Antecedência mínima inválida.' };
   if (!Number.isInteger(horizonDays) || horizonDays < 1 || horizonDays > 365) return { error: 'Dias à frente deve ser entre 1 e 365.' };
   const badDate = blockedDates.find((d) => !isIsoDate(d));
@@ -112,7 +110,7 @@ export function parseConfigForm(form) {
         services,
         instagram,
         notes,
-        schedule: { slotMinutes, stepMinutes, minNoticeHours, horizonDays, week, blockedDates },
+        schedule: { slotMinutes, minNoticeHours, horizonDays, week, blockedDates },
       },
     },
   };

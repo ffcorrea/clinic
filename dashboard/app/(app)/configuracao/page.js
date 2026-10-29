@@ -89,11 +89,6 @@ export default async function ConfigPage({ searchParams }) {
               <span className="hint">Para tratamentos sem duração própria.</span>
             </label>
             <label>
-              Horários de início a cada (min)
-              <input type="number" name="stepMinutes" min="5" max="240" step="5" defaultValue={schedule.stepMinutes ?? schedule.slotMinutes ?? 60} required />
-              <span className="hint">Ex: 30 = 9:00, 9:30, 10:00…</span>
-            </label>
-            <label>
               Antecedência mínima (horas)
               <input type="number" name="minNoticeHours" min="0" max="720" defaultValue={schedule.minNoticeHours ?? 2} required />
             </label>

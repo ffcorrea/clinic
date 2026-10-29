@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { authenticate, endSession, hashPassword, requireSession, startSession } from '../lib/auth';
 import { createAppointment, parseAppointmentForm, setStatus, updateAppointment } from '../lib/appointments';
-import { listClinics, parseConfigForm, saveClinic } from '../lib/clinics';
+import { getClinic, listClinics, parseConfigForm, saveClinic } from '../lib/clinics';
 import { currentClinicId } from '../lib/current';
 import { pool } from '../lib/db';
 
@@ -51,7 +51,8 @@ export async function saveAppointment(formData) {
   const back = String(formData.get('back') || '/agenda');
   const errorPath = id ? `/agenda/${id}` : back;
 
-  const { data, error } = parseAppointmentForm(formData);
+  const clinic = await getClinic(clinicId);
+  const { data, error } = parseAppointmentForm(formData, clinic?.settings);
   if (error) redirect(withMessage(errorPath, 'erro', error));
 
   const problem = id ? await updateAppointment(clinicId, id, data) : await createAppointment(clinicId, data);

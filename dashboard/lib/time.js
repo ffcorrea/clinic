@@ -48,3 +48,29 @@ export function shortDate(date) {
   const [, m, d] = date.split('-');
   return `${d}/${m}`;
 }
+
+export const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+export const startOfMonth = (date) => `${date.slice(0, 8)}01`;
+
+export function addMonths(date, months) {
+  const d = new Date(`${startOfMonth(date)}T12:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+
+// "outubro de 2026"
+export function monthLabel(date) {
+  return `${MONTHS[Number(date.slice(5, 7)) - 1]} de ${date.slice(0, 4)}`;
+}
+
+// "09:30" -> 570
+export function toMinutes(time) {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// 570 -> "09:30"
+export function fromMinutes(minutes) {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}

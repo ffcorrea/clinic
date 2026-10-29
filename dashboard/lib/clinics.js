@@ -18,6 +18,25 @@ export async function getClinic(id) {
   return row || null;
 }
 
+// Tratamentos: "Nome" ou { name, minutes } (minutes vazio = duracao padrao). Mesmo formato do bot.
+export function serviceList(settings) {
+  return (settings?.services || []).map((s) => (typeof s === 'string' ? { name: s, minutes: null } : s));
+}
+
+const normalize = (text) => String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+// Duracao (min) do procedimento pelo nome; sem correspondencia, a duracao padrao
+export function durationFor(settings, serviceName) {
+  const wanted = normalize(serviceName);
+  const service = wanted && serviceList(settings).find((s) => normalize(s.name) === wanted);
+  return service?.minutes || settings?.schedule?.slotMinutes || 60;
+}
+
+// Linhas do formulario: "Clareamento dental | 90" (sem "| minutos" = duracao padrao)
+export function servicesToText(settings) {
+  return serviceList(settings).map((s) => (s.minutes ? `${s.name} | ${s.minutes}` : s.name)).join('\n');
+}
+
 const lines = (text) => String(text || '').split('\n').map((l) => l.trim()).filter(Boolean);
 
 /**
@@ -29,19 +48,35 @@ export function parseConfigForm(form) {
   const type = String(form.get('type') || '');
   const professional = String(form.get('professional') || '').trim();
   const instagram = String(form.get('instagram') || '').trim();
-  const services = lines(form.get('services'));
+  const serviceLines = lines(form.get('services'));
   const notes = lines(form.get('notes'));
   const blockedDates = lines(form.get('blockedDates'));
   const slotMinutes = Number(form.get('slotMinutes'));
+  const stepMinutes = Number(form.get('stepMinutes'));
   const minNoticeHours = Number(form.get('minNoticeHours'));
   const horizonDays = Number(form.get('horizonDays'));
 
   if (!name) return { error: 'Informe o nome da clínica.' };
   if (!CLINIC_TYPES.some((t) => t.id === type)) return { error: 'Escolha o tipo da clínica.' };
   if (!professional) return { error: 'Informe como o bot se refere ao profissional (ex: "a Dra. Glaucia").' };
-  if (!services.length) return { error: 'Informe pelo menos um tratamento ou serviço.' };
+  if (!serviceLines.length) return { error: 'Informe pelo menos um tratamento ou serviço.' };
+  const services = [];
+  for (const line of serviceLines) {
+    const [name, minutesText] = line.split('|').map((part) => part.trim());
+    if (!name) return { error: `Tratamento sem nome: "${line}".` };
+    if (minutesText === undefined || minutesText === '') {
+      services.push({ name, minutes: null });
+      continue;
+    }
+    const minutes = Number(minutesText);
+    if (!Number.isInteger(minutes) || minutes < 5 || minutes > 600) {
+      return { error: `Duração inválida em "${line}". Use minutos inteiros, ex: Clareamento dental | 90` };
+    }
+    services.push({ name, minutes });
+  }
   if (!instagram) return { error: 'Informe o Instagram.' };
   if (!Number.isInteger(slotMinutes) || slotMinutes < 10 || slotMinutes > 480) return { error: 'Duração da consulta deve ser entre 10 e 480 minutos.' };
+  if (!Number.isInteger(stepMinutes) || stepMinutes < 5 || stepMinutes > 240) return { error: 'Intervalo entre horários deve ser entre 5 e 240 minutos.' };
   if (!Number.isInteger(minNoticeHours) || minNoticeHours < 0 || minNoticeHours > 720) return { error: 'Antecedência mínima inválida.' };
   if (!Number.isInteger(horizonDays) || horizonDays < 1 || horizonDays > 365) return { error: 'Dias à frente deve ser entre 1 e 365.' };
   const badDate = blockedDates.find((d) => !isIsoDate(d));
@@ -70,7 +105,7 @@ export function parseConfigForm(form) {
         services,
         instagram,
         notes,
-        schedule: { slotMinutes, minNoticeHours, horizonDays, week, blockedDates },
+        schedule: { slotMinutes, stepMinutes, minNoticeHours, horizonDays, week, blockedDates },
       },
     },
   };

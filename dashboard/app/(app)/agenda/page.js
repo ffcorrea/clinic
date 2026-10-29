@@ -1,35 +1,14 @@
 import Link from 'next/link';
-import { changeStatus } from '../../actions';
 import Flash from '../../flash';
 import AppointmentForm from './form';
+import { MonthView, WeekView } from './calendar';
 import { requireSession } from '../../../lib/auth';
-import { listAppointments, STATUSES } from '../../../lib/appointments';
-import { getClinic } from '../../../lib/clinics';
+import { listAppointments } from '../../../lib/appointments';
+import { getClinic, serviceList } from '../../../lib/clinics';
 import { currentClinicId } from '../../../lib/current';
-import { addDays, isIsoDate, mondayOf, shortDate, today, WEEKDAYS } from '../../../lib/time';
+import { addDays, addMonths, isIsoDate, isTime, mondayOf, monthLabel, shortDate, startOfMonth, today } from '../../../lib/time';
 
-const SOURCE_LABEL = { agent: 'Bot', manual: 'Manual' };
-
-function StatusButtons({ appointment, back }) {
-  if (appointment.status !== 'scheduled') return null;
-  return (
-    <div className="row-actions">
-      {[
-        ['done', 'Compareceu'],
-        ['no_show', 'Faltou'],
-        ['cancelled', 'Cancelar'],
-      ].map(([status, label]) => (
-        <form key={status} action={changeStatus}>
-          <input type="hidden" name="id" value={appointment.id} />
-          <input type="hidden" name="status" value={status} />
-          <input type="hidden" name="back" value={back} />
-          <button type="submit" className={status === 'cancelled' ? 'secondary danger' : 'secondary'}>{label}</button>
-        </form>
-      ))}
-    </div>
-  );
-}
-
+// /agenda?ver=semana|mes&data=AAAA-MM-DD (aceita tambem o antigo ?semana=)
 export default async function AgendaPage({ searchParams }) {
   const user = await requireSession();
   const params = await searchParams;
@@ -38,81 +17,88 @@ export default async function AgendaPage({ searchParams }) {
   if (!clinic) return <main><div className="card empty">Nenhuma clínica cadastrada ainda.</div></main>;
 
   const schedule = clinic.settings.schedule || {};
-  const monday = mondayOf(isIsoDate(params.semana) ? params.semana : today());
-  const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-  const appointments = await listAppointments(clinicId, days[0], days[6]);
-  const back = `/agenda?semana=${monday}`;
-  const scheduledCount = appointments.filter((a) => a.status === 'scheduled').length;
+  const view = params.ver === 'mes' ? 'mes' : 'semana';
+  const date = [params.data, params.semana].find(isIsoDate) || today();
+  const showCancelled = params.cancelados === '1';
+  const href = (extra = {}) => {
+    const query = new URLSearchParams({ ver: view, data: date, ...(showCancelled && { cancelados: '1' }), ...extra });
+    return `/agenda?${query}`;
+  };
+  const back = href();
+
+  let range, title, prev, next;
+  if (view === 'mes') {
+    const month = startOfMonth(date);
+    const first = mondayOf(month);
+    const last = addDays(mondayOf(addDays(addMonths(month, 1), -1)), 6);
+    range = [first, last];
+    title = monthLabel(month);
+    prev = addMonths(month, -1);
+    next = addMonths(month, 1);
+  } else {
+    const monday = mondayOf(date);
+    range = [monday, addDays(monday, 6)];
+    title = `${shortDate(range[0])} a ${shortDate(range[1])}`;
+    prev = addDays(monday, -7);
+    next = addDays(monday, 7);
+  }
+  const all = await listAppointments(clinicId, range[0], range[1]);
+  const appointments = showCancelled ? all : all.filter((a) => a.status !== 'cancelled');
+  const scheduledCount = all.filter((a) => a.status === 'scheduled' && (view === 'semana' || a.date.startsWith(date.slice(0, 7)))).length;
+
+  const newDate = isIsoDate(params.novo) ? params.novo : today() < range[0] ? range[0] : today();
+  const newTime = isTime(params.hora) ? params.hora : '09:00';
 
   return (
-    <main>
+    <main className="wide">
       <header className="top">
         <div>
-          <h1>Agenda</h1>
+          <h1 className="cal-title">{view === 'mes' ? title : `Semana de ${title}`}</h1>
           <p className="muted">
-            Semana de {shortDate(days[0])} a {shortDate(days[6])} · {scheduledCount} agendada{scheduledCount === 1 ? '' : 's'}
+            {scheduledCount} agendada{scheduledCount === 1 ? '' : 's'}
+            {' · '}
+            <Link href={href({ cancelados: showCancelled ? '0' : '1' })}>{showCancelled ? 'Ocultar' : 'Mostrar'} cancelados</Link>
           </p>
         </div>
-        <nav className="segmented" aria-label="Semana">
-          <Link href={`/agenda?semana=${addDays(monday, -7)}`}>← Anterior</Link>
-          <Link href="/agenda">Hoje</Link>
-          <Link href={`/agenda?semana=${addDays(monday, 7)}`}>Próxima →</Link>
-        </nav>
+        <div className="cal-controls">
+          <nav className="segmented" aria-label="Visualização">
+            <Link href={href({ ver: 'semana' })} className={view === 'semana' ? 'active' : ''}>Semana</Link>
+            <Link href={href({ ver: 'mes' })} className={view === 'mes' ? 'active' : ''}>Mês</Link>
+          </nav>
+          <nav className="segmented" aria-label="Período">
+            <Link href={href({ data: prev })} aria-label="Anterior">←</Link>
+            <Link href={href({ data: today() })}>Hoje</Link>
+            <Link href={href({ data: next })} aria-label="Próximo">→</Link>
+          </nav>
+        </div>
       </header>
 
       <Flash params={params} />
 
-      <details className="card" open={Boolean(params.erro)}>
+      <details id="novo" className="card" open={Boolean(params.erro || params.novo)}>
         <summary>Novo agendamento</summary>
         <AppointmentForm
-          defaults={{ date: today() < days[0] ? days[0] : today(), start: '09:00', duration: schedule.slotMinutes || 60 }}
-          services={clinic.settings.services || []}
+          key={`${newDate}-${newTime}`}
+          defaults={{ date: newDate, start: newTime, duration: schedule.slotMinutes || 60 }}
+          services={serviceList(clinic.settings).map((s) => s.name)}
           back={back}
           submitLabel="Agendar"
         />
       </details>
 
-      {days.map((date) => {
-        const list = appointments.filter((a) => a.date === date);
-        const hours = schedule.blockedDates?.includes(date) ? 'Bloqueado' : (schedule.week?.[new Date(`${date}T12:00:00Z`).getUTCDay()] || []).join(', ') || 'Fechado';
-        return (
-          <section key={date} className={`card day${date === today() ? ' today' : ''}`}>
-            <h2>
-              {WEEKDAYS[new Date(`${date}T12:00:00Z`).getUTCDay()]}, {shortDate(date)}
-              <span className="muted day-hours">{hours}</span>
-            </h2>
-            {list.length === 0 ? (
-              <p className="muted">Sem consultas.</p>
-            ) : (
-              <ul className="appointments">
-                {list.map((a) => (
-                  <li key={a.id} className={`appointment status-${a.status}`}>
-                    <div className="when">{a.start}–{a.end}</div>
-                    <div className="who">
-                      <strong>{a.patient_name}</strong>
-                      {a.service && <span> · {a.service}</span>}
-                      <div className="muted small">
-                        {a.phone && (
-                          <a href={`https://wa.me/${a.phone}`} target="_blank" rel="noreferrer">{a.phone}</a>
-                        )}
-                        {a.notes && <span className="notes"> · {a.notes}</span>}
-                      </div>
-                    </div>
-                    <div className="tags">
-                      <span className={`tag source-${a.source}`}>{SOURCE_LABEL[a.source] || a.source}</span>
-                      <span className={`tag st-${a.status}`}>{STATUSES[a.status]}</span>
-                    </div>
-                    <div className="actions">
-                      <StatusButtons appointment={a} back={back} />
-                      <Link href={`/agenda/${a.id}`} className="small">Editar</Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        );
-      })}
+      {view === 'mes' ? (
+        <MonthView month={startOfMonth(date)} appointments={appointments} schedule={schedule} href={href} />
+      ) : (
+        <WeekView days={Array.from({ length: 7 }, (_, i) => addDays(range[0], i))} appointments={appointments} schedule={schedule} href={href} />
+      )}
+
+      <p className="muted small cal-legend">
+        <span className="legend status-scheduled">Agendado</span>
+        <span className="legend status-done">Compareceu</span>
+        <span className="legend status-no_show">Faltou</span>
+        {showCancelled && <span className="legend status-cancelled">Cancelado</span>}
+        <span>{view === 'semana' ? 'Clique num horário vazio para agendar, ou numa consulta para editar.' : 'Clique num dia para ver a semana.'}</span>
+      </p>
     </main>
   );
 }

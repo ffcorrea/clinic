@@ -5,9 +5,8 @@ import Flash from '../../../flash';
 import AppointmentForm from '../form';
 import { requireSession } from '../../../../lib/auth';
 import { getAppointment, STATUSES } from '../../../../lib/appointments';
-import { getClinic } from '../../../../lib/clinics';
+import { getClinic, serviceList } from '../../../../lib/clinics';
 import { currentClinicId } from '../../../../lib/current';
-import { mondayOf } from '../../../../lib/time';
 
 export default async function EditAppointmentPage({ params, searchParams }) {
   const user = await requireSession();
@@ -16,7 +15,7 @@ export default async function EditAppointmentPage({ params, searchParams }) {
   const appointment = clinicId && (await getAppointment(clinicId, Number(id)));
   if (!appointment) notFound();
   const clinic = await getClinic(clinicId);
-  const back = `/agenda?semana=${mondayOf(appointment.date)}`;
+  const back = `/agenda?data=${appointment.date}`;
 
   return (
     <main>
@@ -25,15 +24,39 @@ export default async function EditAppointmentPage({ params, searchParams }) {
           <h1>Editar agendamento</h1>
           <p className="muted">
             {STATUSES[appointment.status]} · criado {appointment.source === 'agent' ? 'pelo bot' : 'manualmente'}
+            {appointment.phone && (
+              <>
+                {' · '}
+                <a href={`https://wa.me/${appointment.phone}`} target="_blank" rel="noreferrer">WhatsApp {appointment.phone}</a>
+              </>
+            )}
           </p>
         </div>
         <Link href={back}>← Voltar para a agenda</Link>
       </header>
       <Flash params={await searchParams} />
       <section className="card">
-        <AppointmentForm appointment={appointment} defaults={{}} services={clinic.settings.services || []} back={back} submitLabel="Salvar" />
+        <AppointmentForm appointment={appointment} defaults={{ duration: clinic.settings.schedule?.slotMinutes || 60 }} services={serviceList(clinic.settings).map((s) => s.name)} back={back} submitLabel="Salvar" />
       </section>
-      {appointment.status !== 'scheduled' && (
+      {appointment.status === 'scheduled' ? (
+        <section className="card">
+          <h2>Status</h2>
+          <div className="row-actions">
+            {[
+              ['done', 'Compareceu'],
+              ['no_show', 'Faltou'],
+              ['cancelled', 'Cancelar consulta'],
+            ].map(([status, label]) => (
+              <form key={status} action={changeStatus}>
+                <input type="hidden" name="id" value={appointment.id} />
+                <input type="hidden" name="status" value={status} />
+                <input type="hidden" name="back" value={back} />
+                <button type="submit" className={status === 'cancelled' ? 'secondary danger' : 'secondary'}>{label}</button>
+              </form>
+            ))}
+          </div>
+        </section>
+      ) : (
         <form action={changeStatus} className="card">
           <input type="hidden" name="id" value={appointment.id} />
           <input type="hidden" name="status" value="scheduled" />

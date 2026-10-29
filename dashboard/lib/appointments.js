@@ -1,3 +1,4 @@
+import { durationFor } from './clinics';
 import { pool } from './db';
 import { fromLocal, isIsoDate, isTime, toLocal } from './time';
 
@@ -32,11 +33,16 @@ export async function getAppointment(clinicId, id) {
   return { ...row, date: start.date, start: start.time, duration: Math.round((row.ends_at - row.starts_at) / 60000) };
 }
 
-/** Le e valida o formulario. Retorna { data } ou { error }. */
-export function parseAppointmentForm(form) {
+/**
+ * Le e valida o formulario. Retorna { data } ou { error }.
+ * Duracao em branco = a do procedimento escolhido (ou a padrao da clinica).
+ */
+export function parseAppointmentForm(form, settings) {
   const date = String(form.get('date') || '');
   const start = String(form.get('start') || '');
-  const duration = Number(form.get('duration'));
+  const service = String(form.get('service') || '').trim();
+  const durationText = String(form.get('duration') || '').trim();
+  const duration = durationText ? Number(durationText) : durationFor(settings, service);
   const patientName = String(form.get('patient_name') || '').trim();
   const phone = String(form.get('phone') || '').replace(/\D/g, '');
 
@@ -49,7 +55,7 @@ export function parseAppointmentForm(form) {
     data: {
       patientName,
       phone: phone || null,
-      service: String(form.get('service') || '').trim() || null,
+      service: service || null,
       notes: String(form.get('notes') || '').trim() || null,
       startsAt,
       endsAt: new Date(startsAt.getTime() + duration * 60000),

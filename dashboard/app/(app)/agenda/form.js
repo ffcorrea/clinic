@@ -17,7 +17,8 @@ export default function AppointmentForm({ appointment, defaults, services, back,
       </label>
       <label>
         Duração (min)
-        <input type="number" name="duration" min="5" max="600" step="5" defaultValue={a.duration || defaults.duration} required />
+        <input type="number" name="duration" min="5" max="600" step="5" defaultValue={a.duration || ''} placeholder="Automática" />
+        <span className="hint">Em branco: a do tratamento ({defaults.duration} min se não tiver)</span>
       </label>
       <label className="span-2">
         Paciente

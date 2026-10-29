@@ -2,7 +2,8 @@ const db = require('../db');
 const time = require('../lib/time');
 
 // Agenda de cada clinica. Configuracao (settings.schedule), editavel no painel:
-//   slotMinutes    - duracao de cada consulta (e intervalo entre horarios oferecidos)
+//   slotMinutes    - duracao padrao da consulta (procedimento sem duracao propria)
+//   stepMinutes    - intervalo entre os horarios de inicio oferecidos (padrao: slotMinutes)
 //   minNoticeHours - antecedencia minima para marcar
 //   horizonDays    - ate quantos dias a frente o bot pode marcar
 //   week           - expediente por dia da semana (0 = domingo ... 6 = sabado), ex: { "1": ["09:00-12:00", "14:00-18:00"] }
@@ -18,7 +19,23 @@ const DEFAULT_SCHEDULE = {
 const MAX_SLOTS = 12;
 
 function withDefaults(schedule = {}) {
-  return { ...DEFAULT_SCHEDULE, ...schedule, week: schedule.week || DEFAULT_SCHEDULE.week };
+  const merged = { ...DEFAULT_SCHEDULE, ...schedule, week: schedule.week || DEFAULT_SCHEDULE.week };
+  return { ...merged, stepMinutes: merged.stepMinutes || merged.slotMinutes };
+}
+
+// Tratamentos: "Nome" ou { name, minutes } (minutes vazio = duracao padrao)
+function serviceList(settings) {
+  return (settings?.services || []).map((s) => (typeof s === 'string' ? { name: s, minutes: null } : s));
+}
+
+const normalize = (text) => String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+// Duracao (min) do procedimento pelo nome; sem correspondencia, a duracao padrao
+function durationFor(settings, serviceName) {
+  const schedule = withDefaults(settings?.schedule);
+  const wanted = normalize(serviceName);
+  const service = wanted && serviceList(settings).find((s) => normalize(s.name) === wanted);
+  return service?.minutes || schedule.slotMinutes;
 }
 
 function intervalsOf(schedule, date) {
@@ -26,11 +43,11 @@ function intervalsOf(schedule, date) {
   return (schedule.week[time.weekdayOf(date)] || []).map((range) => range.split('-').map(time.toMinutes));
 }
 
-// Todos os horarios de inicio de um dia, pelo expediente e duracao da consulta
-function slotsOfDay(schedule, date) {
+// Horarios de inicio de um dia em que um procedimento de `duration` minutos cabe inteiro no expediente
+function slotsOfDay(schedule, date, duration = schedule.slotMinutes) {
   const slots = [];
   for (const [start, end] of intervalsOf(schedule, date)) {
-    for (let m = start; m + schedule.slotMinutes <= end; m += schedule.slotMinutes) slots.push(time.fromMinutes(m));
+    for (let m = start; m + duration <= end; m += schedule.stepMinutes) slots.push(time.fromMinutes(m));
   }
   return slots;
 }
@@ -57,9 +74,11 @@ const overlaps = (start, end, busy) => busy.some((b) => start < b.ends_at && end
 /**
  * Horarios livres entre duas datas locais ('YYYY-MM-DD'), no maximo MAX_SLOTS.
  * period: 'manha' (antes das 12h), 'tarde' (12h em diante) ou vazio.
+ * duration: minutos do procedimento (padrao: slotMinutes).
  */
-async function freeSlots(clinicId, rawSchedule, fromDate, toDate, period) {
+async function freeSlots(clinicId, rawSchedule, fromDate, toDate, period, duration) {
   const schedule = withDefaults(rawSchedule);
+  const minutes = duration || schedule.slotMinutes;
   const { earliest, lastDate } = bookingWindow(schedule);
   const today = time.toLocal(new Date()).date;
   const start = fromDate < today ? today : fromDate;
@@ -71,11 +90,11 @@ async function freeSlots(clinicId, rawSchedule, fromDate, toDate, period) {
 
   const free = [];
   for (let date = start; date <= end && free.length < MAX_SLOTS; date = time.addDays(date, 1)) {
-    for (const slot of slotsOfDay(schedule, date)) {
+    for (const slot of slotsOfDay(schedule, date, minutes)) {
       if (period === 'manha' && time.toMinutes(slot) >= 720) continue;
       if (period === 'tarde' && time.toMinutes(slot) < 720) continue;
       const startsAt = time.fromLocal(date, slot);
-      const endsAt = new Date(startsAt.getTime() + schedule.slotMinutes * 60000);
+      const endsAt = new Date(startsAt.getTime() + minutes * 60000);
       if (startsAt < earliest || overlaps(startsAt, endsAt, busy)) continue;
       free.push({ date, time: slot, label: time.describe(startsAt) });
       if (free.length >= MAX_SLOTS) break;
@@ -88,19 +107,20 @@ async function freeSlots(clinicId, rawSchedule, fromDate, toDate, period) {
  * Marca um horario para o paciente. Confere de novo, com trava, se o horario existe e esta livre.
  * Retorna { ok: true, appointment } ou { ok: false, reason }.
  */
-async function book(clinicId, rawSchedule, { date, time: slot, patientName, phone, service, notes }) {
+async function book(clinicId, rawSchedule, { date, time: slot, duration, patientName, phone, service, notes }) {
   const schedule = withDefaults(rawSchedule);
+  const minutes = duration || schedule.slotMinutes;
   const { earliest, lastDate } = bookingWindow(schedule);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !/^\d{2}:\d{2}$/.test(slot || '')) {
     return { ok: false, reason: 'data ou hora em formato invalido (use YYYY-MM-DD e HH:MM)' };
   }
-  if (!slotsOfDay(schedule, date).includes(slot)) {
-    return { ok: false, reason: 'esse horario nao faz parte da agenda da clinica' };
+  if (!slotsOfDay(schedule, date, minutes).includes(slot)) {
+    return { ok: false, reason: `esse horario nao faz parte da agenda da clinica (ou o procedimento de ${minutes} min nao cabe nele)` };
   }
 
   const startsAt = time.fromLocal(date, slot);
-  const endsAt = new Date(startsAt.getTime() + schedule.slotMinutes * 60000);
+  const endsAt = new Date(startsAt.getTime() + minutes * 60000);
   if (startsAt < earliest || date > lastDate) {
     return { ok: false, reason: 'esse horario esta fora do periodo em que e possivel marcar' };
   }
@@ -168,4 +188,4 @@ function hoursText(rawSchedule) {
     .join('; ');
 }
 
-module.exports = { DEFAULT_SCHEDULE, withDefaults, freeSlots, book, upcoming, cancel, hoursText, slotsOfDay };
+module.exports = { DEFAULT_SCHEDULE, withDefaults, serviceList, durationFor, freeSlots, book, upcoming, cancel, hoursText, slotsOfDay };

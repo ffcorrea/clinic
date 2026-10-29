@@ -50,7 +50,7 @@ function renderPrompt({ name, type, settings }) {
   const fields = {
     ...settings,
     name,
-    services: toBulletList(settings.services),
+    services: toBulletList(agenda.serviceList(settings).map((s) => s.name)),
     hours: agenda.hoursText(settings.schedule),
     notes: notes.length ? `\nINFORMAÇÕES ESPECÍFICAS DA CLÍNICA:\n${toBulletList(notes)}\n` : '',
   };

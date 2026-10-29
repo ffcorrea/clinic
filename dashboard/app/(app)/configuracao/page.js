@@ -1,7 +1,7 @@
 import { saveConfig } from '../../actions';
 import Flash from '../../flash';
 import { requireSession } from '../../../lib/auth';
-import { CLINIC_TYPES, getClinic } from '../../../lib/clinics';
+import { CLINIC_TYPES, getClinic, servicesToText } from '../../../lib/clinics';
 import { currentClinicId } from '../../../lib/current';
 import { WEEKDAYS } from '../../../lib/time';
 
@@ -54,8 +54,11 @@ export default async function ConfigPage({ searchParams }) {
             </label>
             <label className="span-3">
               Tratamentos e serviços (um por linha)
-              <textarea name="services" rows="8" defaultValue={(s.services || []).join('\n')} required />
-              <span className="hint">O bot só confirma o que está nesta lista; o resto ele passa para a recepção confirmar.</span>
+              <textarea name="services" rows="10" defaultValue={servicesToText(s)} placeholder={'Limpeza e profilaxia\nClareamento dental | 90'} required />
+              <span className="hint">
+                Para um tempo de consulta diferente do padrão, coloque “| minutos” no fim da linha, ex: <code>Clareamento dental | 90</code>.
+                O bot só confirma o que está nesta lista; o resto ele passa para a recepção confirmar.
+              </span>
             </label>
             <label className="span-3">
               Observações para o bot (uma por linha, opcional)
@@ -80,8 +83,14 @@ export default async function ConfigPage({ searchParams }) {
           </div>
           <div className="grid-form">
             <label>
-              Duração da consulta (min)
+              Duração padrão da consulta (min)
               <input type="number" name="slotMinutes" min="10" max="480" step="5" defaultValue={schedule.slotMinutes ?? 60} required />
+              <span className="hint">Para tratamentos sem “| minutos”.</span>
+            </label>
+            <label>
+              Horários de início a cada (min)
+              <input type="number" name="stepMinutes" min="5" max="240" step="5" defaultValue={schedule.stepMinutes ?? schedule.slotMinutes ?? 60} required />
+              <span className="hint">Ex: 30 = 9:00, 9:30, 10:00…</span>
             </label>
             <label>
               Antecedência mínima (horas)

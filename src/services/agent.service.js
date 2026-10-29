@@ -13,53 +13,64 @@ const MAX_TOKENS = parseInt(process.env.MAX_TOKENS || '300', 10);
 const MAX_STEPS = 5;
 
 // Ferramentas da agenda. O telefone do paciente nunca vem do modelo: e o do WhatsApp.
-const TOOLS = [
-  {
-    type: 'function',
-    function: {
-      name: 'verificar_disponibilidade',
-      description: 'Lista os horarios livres da agenda da clinica entre duas datas (no maximo 12 horarios).',
-      parameters: {
-        type: 'object',
-        properties: {
-          data_inicio: { type: 'string', description: 'Data inicial, YYYY-MM-DD' },
-          data_fim: { type: 'string', description: 'Data final, YYYY-MM-DD (pode ser igual a inicial)' },
-          periodo: { type: 'string', enum: ['manha', 'tarde', 'qualquer'], description: 'Periodo preferido pelo paciente' },
+// "procedimento" e um dos tratamentos cadastrados; define a duracao reservada na agenda.
+function buildTools(profile) {
+  const names = agenda.serviceList(profile.settings).map((s) => s.name);
+  const procedimento = {
+    type: 'string',
+    ...(names.length && { enum: names }),
+    description: 'Tratamento que o paciente quer, exatamente como na lista da clinica (define a duracao da consulta)',
+  };
+
+  return [
+    {
+      type: 'function',
+      function: {
+        name: 'verificar_disponibilidade',
+        description: 'Lista os horarios livres da agenda da clinica entre duas datas (no maximo 12 horarios) para o procedimento.',
+        parameters: {
+          type: 'object',
+          properties: {
+            data_inicio: { type: 'string', description: 'Data inicial, YYYY-MM-DD' },
+            data_fim: { type: 'string', description: 'Data final, YYYY-MM-DD (pode ser igual a inicial)' },
+            periodo: { type: 'string', enum: ['manha', 'tarde', 'qualquer'], description: 'Periodo preferido pelo paciente' },
+            procedimento,
+          },
+          required: ['data_inicio', 'data_fim'],
         },
-        required: ['data_inicio', 'data_fim'],
       },
     },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'agendar_consulta',
-      description: 'Marca a consulta num horario livre retornado por verificar_disponibilidade. So use depois que o paciente escolher o horario.',
-      parameters: {
-        type: 'object',
-        properties: {
-          data: { type: 'string', description: 'YYYY-MM-DD' },
-          hora: { type: 'string', description: 'HH:MM' },
-          nome_paciente: { type: 'string', description: 'Nome do paciente' },
-          tratamento: { type: 'string', description: 'Tratamento ou motivo da consulta' },
+    {
+      type: 'function',
+      function: {
+        name: 'agendar_consulta',
+        description: 'Marca a consulta num horario livre retornado por verificar_disponibilidade (com o mesmo procedimento). So use depois que o paciente escolher o horario.',
+        parameters: {
+          type: 'object',
+          properties: {
+            data: { type: 'string', description: 'YYYY-MM-DD' },
+            hora: { type: 'string', description: 'HH:MM' },
+            nome_paciente: { type: 'string', description: 'Nome do paciente' },
+            procedimento,
+          },
+          required: ['data', 'hora', 'nome_paciente'],
         },
-        required: ['data', 'hora', 'nome_paciente'],
       },
     },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'cancelar_consulta',
-      description: 'Cancela uma consulta ja marcada deste paciente (use o id da lista de consultas do paciente).',
-      parameters: {
-        type: 'object',
-        properties: { id: { type: 'integer', description: 'Id da consulta' } },
-        required: ['id'],
+    {
+      type: 'function',
+      function: {
+        name: 'cancelar_consulta',
+        description: 'Cancela uma consulta ja marcada deste paciente (use o id da lista de consultas do paciente).',
+        parameters: {
+          type: 'object',
+          properties: { id: { type: 'integer', description: 'Id da consulta' } },
+          required: ['id'],
+        },
       },
     },
-  },
-];
+  ];
+}
 
 async function callModel(clinic, messages, tools) {
   const response = await axios.post(
@@ -87,9 +98,10 @@ async function runTool(clinic, profile, phone, name, args) {
 
   if (name === 'verificar_disponibilidade') {
     const period = args.periodo === 'qualquer' ? undefined : args.periodo;
-    const slots = await agenda.freeSlots(clinic.id, schedule, args.data_inicio, args.data_fim, period);
+    const duration = agenda.durationFor(profile.settings, args.procedimento);
+    const slots = await agenda.freeSlots(clinic.id, schedule, args.data_inicio, args.data_fim, period, duration);
     return slots.length
-      ? { horarios_livres: slots.map((s) => ({ data: s.date, hora: s.time, descricao: s.label })) }
+      ? { duracao_minutos: duration, horarios_livres: slots.map((s) => ({ data: s.date, hora: s.time, descricao: s.label })) }
       : { horarios_livres: [], aviso: 'Nenhum horario livre nesse periodo. Ofereca verificar outras datas.' };
   }
 
@@ -97,9 +109,10 @@ async function runTool(clinic, profile, phone, name, args) {
     const result = await agenda.book(clinic.id, schedule, {
       date: args.data,
       time: args.hora,
+      duration: agenda.durationFor(profile.settings, args.procedimento),
       patientName: args.nome_paciente,
       phone,
-      service: args.tratamento,
+      service: args.procedimento,
     });
     return result.ok
       ? { agendado: true, id: result.appointment.id, quando: result.appointment.label }
@@ -150,11 +163,12 @@ async function chat(clinic, messages, { phone } = {}) {
   const system = `${clinicService.renderPrompt(profile)}\n\n${await buildContext(clinic, phone, agendaOn)}`;
 
   const conversation = [{ role: 'system', content: system }, ...messages];
+  const tools = buildTools(profile);
   const usage = { prompt_tokens: 0, completion_tokens: 0 };
   const toolCalls = [];
 
   for (let step = 0; step < MAX_STEPS; step++) {
-    const data = await callModel(clinic, conversation, agendaOn ? TOOLS : undefined);
+    const data = await callModel(clinic, conversation, agendaOn ? tools : undefined);
     usage.prompt_tokens += data.usage?.prompt_tokens || 0;
     usage.completion_tokens += data.usage?.completion_tokens || 0;
 

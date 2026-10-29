@@ -11,6 +11,8 @@ const INFERENCE_ACCESS_KEY = process.env.INFERENCE_ACCESS_KEY;
 const MAX_TOKENS = parseInt(process.env.MAX_TOKENS || '300', 10);
 // Maximo de idas ao modelo por mensagem (cada uso de ferramenta e uma ida)
 const MAX_STEPS = 5;
+// Dias do calendario enviado ao modelo no contexto
+const CALENDAR_DAYS = 21;
 
 // Ferramentas da agenda. O telefone do paciente nunca vem do modelo: e o do WhatsApp.
 // "procedimento" e um dos tratamentos cadastrados; define a duracao reservada na agenda.
@@ -134,6 +136,13 @@ async function buildContext(clinic, phone, agendaOn) {
   const lines = [
     '## CONTEXTO ATUAL',
     `Agora: ${time.WEEKDAYS[now.weekday]}, ${day}/${month}/${year}, ${now.time} (horário de Brasília).`,
+    // Calendario pronto: o modelo erra ao calcular "segunda que vem" de cabeca
+    'Calendário (use para converter "amanhã", "segunda que vem", "dia 5" etc. em datas; nunca calcule de cabeça):',
+    ...Array.from({ length: CALENDAR_DAYS }, (_, i) => {
+      const date = time.addDays(now.date, i);
+      const label = i === 0 ? ' (hoje)' : i === 1 ? ' (amanhã)' : '';
+      return `- ${time.WEEKDAYS[time.weekdayOf(date)]} ${date.slice(8)}/${date.slice(5, 7)} = ${date}${label}`;
+    }),
   ];
 
   if (!agendaOn) {

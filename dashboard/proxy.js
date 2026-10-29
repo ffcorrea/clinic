@@ -1,25 +1,13 @@
 import { NextResponse } from 'next/server';
+import { readToken } from './lib/token';
 
-// Login simples (Basic Auth) com DASHBOARD_USER / DASHBOARD_PASSWORD
+// Toda pagina exige sessao, menos /login e /health
 export function proxy(request) {
-  const password = process.env.DASHBOARD_PASSWORD;
-  if (!password) return NextResponse.next();
-
-  const user = process.env.DASHBOARD_USER || 'admin';
-  const header = request.headers.get('authorization') || '';
-  const [scheme, encoded] = header.split(' ');
-
-  if (scheme === 'Basic' && encoded && atob(encoded) === `${user}:${password}`) {
-    return NextResponse.next();
-  }
-
-  return new NextResponse('Autenticacao necessaria', {
-    status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Painel de uso"' },
-  });
+  if (readToken(request.cookies.get('sid')?.value)) return NextResponse.next();
+  return NextResponse.redirect(new URL(`${request.nextUrl.basePath}/login`, request.url));
 }
 
 export const config = {
   // '/' explicito: com basePath, a raiz (/painel) nao casa com o padrao de baixo
-  matcher: ['/', '/((?!_next/static|_next/image|favicon.ico|health).*)'],
+  matcher: ['/', '/((?!_next/static|_next/image|favicon.ico|health|login).*)'],
 };

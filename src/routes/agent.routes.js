@@ -11,7 +11,8 @@ router.use(requireSecret, loadClinic);
 // POST /agent/:clinicId/chat - Enviar mensagem para o agente
 router.post('/chat', async (req, res) => {
   try {
-    const { messages } = req.body;
+    // phone (opcional): simula o telefone do paciente para testar a agenda
+    const { messages, phone } = req.body;
 
     if (!messages) {
       return res.status(400).json({ error: 'messages é obrigatório' });
@@ -21,7 +22,7 @@ router.post('/chat', async (req, res) => {
       ? messages
       : [{ role: 'user', content: messages }];
 
-    const result = await agentService.chat(req.clinic, messagesArray);
+    const result = await agentService.chat(req.clinic, messagesArray, { phone });
 
     res.json(result);
   } catch (error) {

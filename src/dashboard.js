@@ -32,6 +32,16 @@ function mountDashboard(app) {
   app.use((req, res, nextMiddleware) => {
     if (!isDashboardPath(req.path)) return nextMiddleware();
 
+    // Formulario enviado antes do JavaScript carregar: o Next redireciona sem o basePath
+    // (ex: "/agenda" em vez de "/painel/agenda"). Corrige o Location aqui.
+    const setHeader = res.setHeader.bind(res);
+    res.setHeader = (name, value) => {
+      if (String(name).toLowerCase() === 'location' && typeof value === 'string' && value.startsWith('/') && !isDashboardPath(value.split('?')[0])) {
+        value = `${BASE_PATH}${value}`;
+      }
+      return setHeader(name, value);
+    };
+
     ready
       .then(() => handle(req, res))
       .catch(() => res.status(503).send('Painel indisponivel'));

@@ -19,7 +19,6 @@ Para criar um tipo novo, adicione `src/prompts/<tipo>.md`.
      "prompt": {
        "professional": "a Dra. Fulana",
        "services": ["Lentes de contato dental", "Clareamento dental"],
-       "hours": "segunda a sexta, 9h às 18h",
        "instagram": "@institutolirium",
        "notes": ["Estacionamento no local."]
      },
@@ -33,6 +32,7 @@ Para criar um tipo novo, adicione `src/prompts/<tipo>.md`.
    - `type`: nome de um arquivo em `src/prompts/` (sem `.md`)
    - `professional`: como o bot se refere a quem atende ("a Dra. Fulana", "o Dr. Paulo", "a nutricionista Ana")
    - `notes` (opcional): informacoes e regras so desse consultorio
+   - `schedule` (opcional): agenda inicial (expediente, duracao da consulta); depois e editada no painel
    - `model` (opcional): modelo diferente de `INFERENCE_MODEL`
    - `zapi`: os NOMES das variaveis de ambiente da Z-API desse numero
    - Se faltar algum campo, o servidor nao inicia e diz qual falta.
@@ -48,21 +48,33 @@ Todas exigem `?token=WEBHOOK_SECRET` ou o header `x-api-key`.
 - `POST /agent/<id>/chat` - testar o agente sem WhatsApp
 - `POST /zapi/webhook` - webhook antigo; acha o consultorio pelo `instanceId` da Z-API
 
-## Painel de uso (dashboard/)
+## Painel (dashboard/)
 
-O bot grava cada atendimento na tabela `usage_events` (criada sozinha ao iniciar):
-mensagens recebidas/enviadas, tokens, custo em US$ e o dolar do momento (AwesomeAPI).
-O painel Next.js em `dashboard/` mostra isso por consultorio, agrupado por dia, semana ou mes.
+Next.js em `dashboard/`, servido pelo bot em `/painel`. Login por e-mail e senha.
 
-Variaveis do bot:
+- **Agenda** - consultas da semana; criar, editar, remarcar e marcar como compareceu/faltou/cancelado.
+  O bot tambem marca e cancela pelo WhatsApp (aparece como "Bot").
+- **Configuracao** - nome, tipo, profissional, tratamentos, Instagram, observacoes e a agenda
+  (expediente por dia, duracao da consulta, antecedencia, dias bloqueados). O bot usa em ate 1 minuto, sem deploy.
+- **Uso e custos** (so admin) - mensagens, tokens e custo por consultorio, por dia/semana/mes.
+- **Usuarios** (so admin) - cria logins de admin ou de uma clinica (ve so a propria agenda e configuracao).
 
-- `DATABASE_URL` - MySQL da DigitalOcean, `mysql://usuario:senha@host:25060/banco` (sem ela o registro fica desligado)
+Primeiro acesso: com o banco sem usuarios, entre com `DASHBOARD_USER` / `DASHBOARD_PASSWORD`; isso cria o
+primeiro administrador. Depois os logins sao gerenciados em Usuarios.
+
+O bot cria as tabelas sozinho ao iniciar (`usage_events`, `clinics`, `users`, `appointments`) e cadastra cada
+consultorio de `src/clinics/` na tabela `clinics` (so na primeira vez; dai em diante vale o que for salvo no painel).
+
+Variaveis:
+
+- `DATABASE_URL` - MySQL da DigitalOcean, `mysql://usuario:senha@host:25060/banco`
+  (sem ela: sem agenda, sem painel e sem registro de uso; o bot responde com o config.json)
+- `DASHBOARD_USER` / `DASHBOARD_PASSWORD` - so para criar o primeiro administrador
+- `SESSION_SECRET` (opcional) - chave do cookie de login; sem ela e derivada dos outros segredos
 - `PRICE_INPUT_PER_MTOK` / `PRICE_OUTPUT_PER_MTOK` - preco do modelo em US$ por 1 milhao de tokens (padrao 1 / 5)
 
-Painel (`cd dashboard && npm install && npm run dev`, abre em http://localhost:3001/painel).
-Localmente ele le o mesmo `.env` da raiz que o bot; variaveis a mais:
-
-- `DASHBOARD_USER` / `DASHBOARD_PASSWORD` - login do painel
+Para rodar o painel sozinho: `cd dashboard && npm install && npm run dev` (http://localhost:3001/painel).
+Atencao: o `.env` local aponta para o banco de producao.
 
 ## Deploy (App Platform, um componente so)
 

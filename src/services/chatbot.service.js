@@ -64,7 +64,7 @@ async function flush(clinic, phone) {
   let result;
 
   try {
-    result = await agentService.chat(clinic, conversation.getHistory(clinic.id, phone));
+    result = await agentService.chat(clinic, conversation.getHistory(clinic.id, phone), { phone });
     const reply = result.choices?.[0]?.message?.content?.trim();
 
     if (!reply) throw new Error('Resposta vazia do agente');

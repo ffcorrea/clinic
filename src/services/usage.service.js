@@ -1,9 +1,8 @@
 const axios = require('axios');
-const mysql = require('mysql2/promise');
+const db = require('../db');
 
-// Registra no MySQL (DigitalOcean) o uso de cada atendimento, para o painel em dashboard/.
-// Sem DATABASE_URL o registro fica desligado e o bot funciona normalmente.
-const DATABASE_URL = process.env.DATABASE_URL;
+// Registra no MySQL o uso de cada atendimento, para o painel em dashboard/.
+// Sem banco configurado o registro fica desligado e o bot funciona normalmente.
 
 // Preco do modelo em US$ por 1 milhao de tokens (conferir na tabela da DigitalOcean)
 const PRICE_INPUT_PER_MTOK = parseFloat(process.env.PRICE_INPUT_PER_MTOK || '1');
@@ -16,39 +15,6 @@ const FX_SOURCES = [
   { name: 'ExchangeRate-API', url: 'https://open.er-api.com/v6/latest/USD', parse: (d) => d?.rates?.BRL },
 ];
 const FX_CACHE_MS = 60 * 60 * 1000;
-
-// DATABASE_URL=mysql://usuario:senha@host:porta/banco (o banco gerenciado exige SSL)
-const pool = DATABASE_URL
-  ? mysql.createPool({ uri: DATABASE_URL, ssl: { rejectUnauthorized: false }, connectionLimit: 3, timezone: 'Z' })
-  : null;
-
-// Datas gravadas em UTC; o painel converte para o horario de Brasilia
-const SCHEMA = `
-  CREATE TABLE IF NOT EXISTS usage_events (
-    id                bigint unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    created_at        datetime NOT NULL DEFAULT (UTC_TIMESTAMP()),
-    clinic_id         varchar(100) NOT NULL,
-    clinic_name       varchar(255),
-    phone             varchar(30),
-    kind              varchar(30) NOT NULL COMMENT 'reply | error | unsupported_media',
-    model             varchar(100),
-    messages_in       int NOT NULL DEFAULT 0,
-    messages_out      int NOT NULL DEFAULT 0,
-    prompt_tokens     int NOT NULL DEFAULT 0,
-    completion_tokens int NOT NULL DEFAULT 0,
-    cost_usd          decimal(12, 6) NOT NULL DEFAULT 0,
-    usd_brl           decimal(10, 4),
-    KEY usage_events_created_at_idx (created_at),
-    KEY usage_events_clinic_idx (clinic_id, created_at)
-  )
-`;
-
-const ready = pool
-  ? pool.query(SCHEMA).then(
-      () => console.log('Registro de uso ativo (usage_events)'),
-      (error) => console.error('Erro ao preparar usage_events:', error.message)
-    )
-  : Promise.resolve();
 
 let fx = { rate: null, fetchedAt: 0 };
 
@@ -80,17 +46,15 @@ async function getUsdBrl() {
  *   usage: objeto "usage" da resposta do modelo ({ prompt_tokens, completion_tokens })
  */
 async function record(clinic, { phone, kind, messagesIn = 0, messagesOut = 0, usage }) {
-  if (!pool) return;
+  if (!db.enabled) return;
 
   try {
-    await ready;
-
     const promptTokens = usage?.prompt_tokens || 0;
     const completionTokens = usage?.completion_tokens || 0;
     const costUsd =
       (promptTokens * PRICE_INPUT_PER_MTOK + completionTokens * PRICE_OUTPUT_PER_MTOK) / 1e6;
 
-    await pool.query(
+    await db.query(
       `INSERT INTO usage_events
         (clinic_id, clinic_name, phone, kind, model, messages_in, messages_out,
          prompt_tokens, completion_tokens, cost_usd, usd_brl)

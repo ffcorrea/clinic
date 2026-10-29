@@ -1,8 +1,8 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Painel de uso',
-  description: 'Mensagens, tokens e custo por consultorio',
+  title: 'Painel da clínica',
+  description: 'Agenda, configuração do atendimento e uso do bot',
 };
 
 export default function RootLayout({ children }) {

@@ -1,5 +1,6 @@
-import { getCurrentUsdBrl } from '../lib/fx';
-import { GRANULARITIES, getUsage, groupBy, listClinics, parseFilters, sumRows } from '../lib/usage';
+import { requireSession } from '../../../lib/auth';
+import { getCurrentUsdBrl } from '../../../lib/fx';
+import { GRANULARITIES, getUsage, groupBy, listClinics, parseFilters, sumRows } from '../../../lib/usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,6 +92,7 @@ function UsageTable({ title, groups, firstColumn, maxBrl }) {
 }
 
 export default async function Page({ searchParams }) {
+  await requireSession({ admin: true });
   const filters = parseFilters(await searchParams);
   const fx = await getCurrentUsdBrl();
 
@@ -100,7 +102,7 @@ export default async function Page({ searchParams }) {
   } catch (error) {
     return (
       <main>
-        <h1>Painel de uso</h1>
+        <h1>Uso e custos</h1>
         <div className="card error">Não foi possível ler o banco: {error.message}</div>
       </main>
     );
@@ -115,7 +117,7 @@ export default async function Page({ searchParams }) {
     <main>
       <header className="top">
         <div>
-          <h1>Painel de uso</h1>
+          <h1>Uso e custos</h1>
           <p className="muted">Mensagens, tokens e custo do bot por consultório</p>
         </div>
         <div className="fx">

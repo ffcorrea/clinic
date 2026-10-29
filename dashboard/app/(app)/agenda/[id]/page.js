@@ -21,9 +21,11 @@ export default async function EditAppointmentPage({ params, searchParams }) {
     <main>
       <header className="top">
         <div>
-          <h1>Editar agendamento</h1>
+          <h1>{appointment.source === 'block' ? 'Editar bloqueio' : 'Editar agendamento'}</h1>
           <p className="muted">
-            {STATUSES[appointment.status]} · criado {appointment.source === 'agent' ? 'pelo bot' : 'manualmente'}
+            {appointment.source === 'block'
+              ? `Horário bloqueado${appointment.status === 'cancelled' ? ' (removido)' : ''}`
+              : `${STATUSES[appointment.status]} · criado ${appointment.source === 'agent' ? 'pelo bot' : 'manualmente'}`}
             {appointment.phone && (
               <>
                 {' · '}
@@ -38,7 +40,16 @@ export default async function EditAppointmentPage({ params, searchParams }) {
       <section className="card">
         <AppointmentForm appointment={appointment} defaults={{ duration: clinic.settings.schedule?.slotMinutes || 60 }} services={serviceList(clinic.settings).map((s) => s.name)} back={back} submitLabel="Salvar" />
       </section>
-      {appointment.status === 'scheduled' ? (
+      {appointment.source === 'block' ? (
+        <form action={changeStatus} className="card">
+          <input type="hidden" name="id" value={appointment.id} />
+          <input type="hidden" name="status" value={appointment.status === 'scheduled' ? 'cancelled' : 'scheduled'} />
+          <input type="hidden" name="back" value={back} />
+          <button type="submit" className={appointment.status === 'scheduled' ? 'secondary danger' : 'secondary'}>
+            {appointment.status === 'scheduled' ? 'Remover bloqueio' : 'Bloquear de novo'}
+          </button>
+        </form>
+      ) : appointment.status === 'scheduled' ? (
         <section className="card">
           <h2>Status</h2>
           <div className="row-actions">

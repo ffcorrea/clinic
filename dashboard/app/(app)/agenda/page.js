@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Flash from '../../flash';
 import AppointmentForm from './form';
+import BlockForm from './block-form';
 import { MonthView, WeekView } from './calendar';
 import { requireSession } from '../../../lib/auth';
 import { listAppointments } from '../../../lib/appointments';
@@ -44,7 +45,7 @@ export default async function AgendaPage({ searchParams }) {
   }
   const all = await listAppointments(clinicId, range[0], range[1]);
   const appointments = showCancelled ? all : all.filter((a) => a.status !== 'cancelled');
-  const scheduledCount = all.filter((a) => a.status === 'scheduled' && (view === 'semana' || a.date.startsWith(date.slice(0, 7)))).length;
+  const scheduledCount = all.filter((a) => a.status === 'scheduled' && a.source !== 'block' && (view === 'semana' || a.date.startsWith(date.slice(0, 7)))).length;
 
   const newDate = isIsoDate(params.novo) ? params.novo : today() < range[0] ? range[0] : today();
   const newTime = isTime(params.hora) ? params.hora : '09:00';
@@ -86,6 +87,11 @@ export default async function AgendaPage({ searchParams }) {
         />
       </details>
 
+      <details id="bloquear" className="card">
+        <summary>Bloquear horário</summary>
+        <BlockForm date={newDate} back={back} />
+      </details>
+
       {view === 'mes' ? (
         <MonthView month={startOfMonth(date)} appointments={appointments} schedule={schedule} href={href} />
       ) : (
@@ -97,6 +103,7 @@ export default async function AgendaPage({ searchParams }) {
         <span className="legend status-done">Compareceu</span>
         <span className="legend status-no_show">Faltou</span>
         {showCancelled && <span className="legend status-cancelled">Cancelado</span>}
+        <span className="legend source-block">Bloqueado</span>
         <span>{view === 'semana' ? 'Clique num horário vazio para agendar, ou numa consulta para editar.' : 'Clique num dia para ver a semana.'}</span>
       </p>
     </main>

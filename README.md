@@ -52,8 +52,10 @@ Todas exigem `?token=WEBHOOK_SECRET` ou o header `x-api-key`.
 
 Next.js em `dashboard/`, servido pelo bot em `/painel`. Login por e-mail e senha.
 
-- **Agenda** - consultas da semana; criar, editar, remarcar e marcar como compareceu/faltou/cancelado.
+- **Agenda** - calendario de semana e mes; criar, editar, remarcar e marcar como compareceu/faltou/cancelado.
   O bot tambem marca e cancela pelo WhatsApp (aparece como "Bot").
+  "Bloquear horario": fecha um periodo em um ou mais dias (compromisso, ausencia) ou dias inteiros;
+  o bot nao oferece horario bloqueado. Almoco fixo vai no expediente da Configuracao (09:00-12:00, 13:00-18:00).
 - **Configuracao** - nome, tipo, profissional, tratamentos, Instagram, observacoes e a agenda
   (expediente por dia, duracao padrao, antecedencia, dias bloqueados).
   Cada tratamento pode ter duracao propria (tabela na tela). Os horarios oferecidos seguem a duracao do

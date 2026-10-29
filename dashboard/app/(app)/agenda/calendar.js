@@ -12,6 +12,7 @@ export function openRanges(schedule, date) {
 }
 
 function tooltip(a) {
+  if (a.source === 'block') return `${a.start}–${a.end} Bloqueado: ${a.patient_name}`;
   return [`${a.start}–${a.end} ${a.patient_name}`, a.service, a.phone, `${STATUSES[a.status]} · ${SOURCE_LABEL[a.source] || a.source}`, a.notes]
     .filter(Boolean)
     .join('\n');
@@ -106,7 +107,7 @@ export function WeekView({ days, appointments, schedule, href }) {
                     title={tooltip(a)}
                   >
                     <span className="event-time">{a.start}</span>
-                    <span className="event-name">{a.patient_name}</span>
+                    <span className="event-name">{a.source === 'block' ? `🔒 ${a.patient_name}` : a.patient_name}</span>
                     {a.service && <span className="event-service">{a.service}</span>}
                   </Link>
                 ))}
@@ -149,7 +150,7 @@ export function MonthView({ month, appointments, schedule, href }) {
               <span className="month-day-number">{Number(date.slice(8))}</span>
               {schedule.blockedDates?.includes(date) && <span className="month-note">Bloqueado</span>}
               {active.slice(0, MONTH_PREVIEW).map((a) => (
-                <span key={a.id} className={`chip status-${a.status}`} title={tooltip(a)}>
+                <span key={a.id} className={`chip status-${a.status} source-${a.source}`} title={tooltip(a)}>
                   {a.start} {a.patient_name}
                 </span>
               ))}

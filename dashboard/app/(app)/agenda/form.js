@@ -3,6 +3,7 @@ import { saveAppointment } from '../../actions';
 // Formulario de agendamento (novo ou edicao)
 export default function AppointmentForm({ appointment, defaults, services, back, submitLabel }) {
   const a = appointment || {};
+  const isBlock = a.source === 'block';
   return (
     <form action={saveAppointment} className="grid-form">
       {a.id && <input type="hidden" name="id" value={a.id} />}
@@ -21,9 +22,10 @@ export default function AppointmentForm({ appointment, defaults, services, back,
         <span className="hint">Em branco: a do tratamento ({defaults.duration} min se não tiver)</span>
       </label>
       <label className="span-2">
-        Paciente
+        {isBlock ? 'Motivo do bloqueio' : 'Paciente'}
         <input name="patient_name" defaultValue={a.patient_name} required />
       </label>
+      {!isBlock && (<>
       <label>
         Telefone (WhatsApp)
         <input name="phone" inputMode="tel" placeholder="5511999999999" defaultValue={a.phone || ''} />
@@ -37,6 +39,7 @@ export default function AppointmentForm({ appointment, defaults, services, back,
           ))}
         </datalist>
       </label>
+      </>)}
       <label className="span-3">
         Observações
         <textarea name="notes" rows="2" defaultValue={a.notes || ''} />

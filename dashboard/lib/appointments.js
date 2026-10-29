@@ -66,11 +66,15 @@ export function parseAppointmentForm(form, settings) {
 // Ha outra consulta agendada no mesmo horario? (ignora a propria, ao editar)
 async function conflict(conn, clinicId, { startsAt, endsAt }, ignoreId = 0) {
   const [[row]] = await conn.query(
-    `SELECT patient_name, starts_at FROM appointments
+    `SELECT patient_name, starts_at, ends_at, source FROM appointments
       WHERE clinic_id = ? AND status = 'scheduled' AND id <> ? AND starts_at < ? AND ends_at > ? LIMIT 1`,
     [clinicId, ignoreId, endsAt, startsAt]
   );
-  return row ? `Conflito com a consulta de ${row.patient_name} às ${toLocal(row.starts_at).time}.` : null;
+  if (!row) return null;
+  const when = `${toLocal(row.starts_at).date.split('-').reverse().slice(0, 2).join('/')} ${toLocal(row.starts_at).time}–${toLocal(row.ends_at).time}`;
+  return row.source === 'block'
+    ? `Horário bloqueado (${row.patient_name}, ${when}).`
+    : `Conflito com a consulta de ${row.patient_name} (${when}).`;
 }
 
 // Mesma trava do bot (src/services/agenda.service.js), para nao marcar dois no mesmo horario
@@ -98,6 +102,25 @@ export function createAppointment(clinicId, data) {
       `INSERT INTO appointments (clinic_id, patient_name, phone, service, starts_at, ends_at, status, source, notes)
        VALUES (?, ?, ?, ?, ?, ?, 'scheduled', 'manual', ?)`,
       [clinicId, data.patientName, data.phone, data.service, data.startsAt, data.endsAt, data.notes]
+    );
+    return null;
+  });
+}
+
+/**
+ * Bloqueio de horario num dia (almoco, compromisso, ausencia): fica na agenda como source 'block',
+ * entao o bot nao oferece o horario. Recusa se ja houver consulta no periodo.
+ * Retorna mensagem de erro, ou null se gravou.
+ */
+export function createBlock(clinicId, { date, start, end, reason }) {
+  const data = { startsAt: fromLocal(date, start), endsAt: fromLocal(date, end) };
+  return withLock(clinicId, async (conn) => {
+    const problem = await conflict(conn, clinicId, data);
+    if (problem) return `${problem} Remarque ou cancele antes de bloquear.`;
+    await conn.query(
+      `INSERT INTO appointments (clinic_id, patient_name, starts_at, ends_at, status, source)
+       VALUES (?, ?, ?, ?, 'scheduled', 'block')`,
+      [clinicId, reason, data.startsAt, data.endsAt]
     );
     return null;
   });

@@ -3,8 +3,9 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { authenticate, endSession, hashPassword, requireSession, startSession } from '../lib/auth';
-import { createAppointment, parseAppointmentForm, setStatus, updateAppointment } from '../lib/appointments';
+import { createAppointment, createBlock, parseAppointmentForm, setStatus, updateAppointment } from '../lib/appointments';
 import { getClinic, listClinics, parseConfigForm, saveClinic } from '../lib/clinics';
+import { addDays, isIsoDate, isTime } from '../lib/time';
 import { currentClinicId } from '../lib/current';
 import { pool } from '../lib/db';
 
@@ -65,6 +66,42 @@ export async function changeStatus(formData) {
   const back = String(formData.get('back') || '/agenda');
   const problem = await setStatus(clinicId, Number(formData.get('id')), String(formData.get('status')));
   redirect(problem ? withMessage(back, 'erro', problem) : back);
+}
+
+// Bloqueia um periodo (ex: 14:00-16:00) em um ou mais dias, ou dias inteiros
+export async function saveBlock(formData) {
+  const clinicId = await clinicOf();
+  const back = String(formData.get('back') || '/agenda');
+  const fail = (message) => redirect(withMessage(back, 'erro', message));
+
+  const from = String(formData.get('from') || '');
+  const to = String(formData.get('to') || '') || from;
+  const allDay = formData.get('allDay') === 'on';
+  const start = String(formData.get('start') || '');
+  const end = String(formData.get('end') || '');
+  const reason = String(formData.get('reason') || '').trim() || 'Bloqueado';
+
+  if (!isIsoDate(from) || !isIsoDate(to) || to < from) fail('Informe a data (e a data final, se for mais de um dia).');
+  const dates = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
+  if (dates.length > 62) fail('Bloqueie no máximo 62 dias por vez.');
+
+  if (allDay) {
+    const clinic = await getClinic(clinicId);
+    const schedule = clinic.settings.schedule || {};
+    const blockedDates = [...new Set([...(schedule.blockedDates || []), ...dates])].sort();
+    await saveClinic(clinicId, { name: clinic.name, type: clinic.type, settings: { ...clinic.settings, schedule: { ...schedule, blockedDates } } });
+    redirect(withMessage(back, 'ok', `${dates.length === 1 ? 'Dia bloqueado' : `${dates.length} dias bloqueados`}. Para desbloquear, use “Dias sem atendimento” na Configuração.`));
+  }
+
+  if (!isTime(start) || !isTime(end) || start >= end) fail('Informe o horário de início e de fim do bloqueio.');
+  const done = [];
+  for (const date of dates) {
+    const problem = await createBlock(clinicId, { date, start, end, reason });
+    if (problem) fail(`${done.length ? `${done.length} dia(s) bloqueado(s); parou em ${date.split('-').reverse().join('/')}: ` : ''}${problem}`);
+    done.push(date);
+  }
+  redirect(withMessage(back, 'ok', `Horário bloqueado (${start}–${end}${dates.length > 1 ? `, ${dates.length} dias` : ''}).`));
 }
 
 // ---- Configuracao ----

@@ -92,8 +92,11 @@ function UsageTable({ title, groups, firstColumn, maxBrl }) {
 }
 
 export default async function Page({ searchParams }) {
-  await requireSession({ admin: true });
+  const user = await requireSession();
+  const isAdmin = user.role === 'admin';
   const filters = parseFilters(await searchParams);
+  // Usuario de clinica: sempre so a propria clinica (ignora ?clinic= da URL)
+  if (!isAdmin) filters.clinic = user.clinicId || '__nenhuma__';
   const fx = await getCurrentUsdBrl();
 
   let rows, clinics;
@@ -118,7 +121,7 @@ export default async function Page({ searchParams }) {
       <header className="top">
         <div>
           <h1>Uso e custos</h1>
-          <p className="muted">Mensagens, tokens e custo do bot por consultório</p>
+          <p className="muted">{isAdmin ? 'Mensagens, tokens e custo do bot por consultório' : 'Mensagens, tokens e custo do atendimento pelo WhatsApp'}</p>
         </div>
         <div className="fx">
           <span className="muted">Dólar hoje</span>
@@ -141,15 +144,17 @@ export default async function Page({ searchParams }) {
           ))}
         </nav>
         <input type="hidden" name="g" value={filters.granularity} />
-        <label>
-          Consultório
-          <select name="clinic" defaultValue={filters.clinic}>
-            <option value="">Todos</option>
-            {clinics.map((c) => (
-              <option key={c.id} value={c.id}>{c.name || c.id}</option>
-            ))}
-          </select>
-        </label>
+        {isAdmin && (
+          <label>
+            Consultório
+            <select name="clinic" defaultValue={filters.clinic}>
+              <option value="">Todos</option>
+              {clinics.map((c) => (
+                <option key={c.id} value={c.id}>{c.name || c.id}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
           De
           <input type="date" name="from" defaultValue={filters.from} />
@@ -173,7 +178,7 @@ export default async function Page({ searchParams }) {
         <div className="card empty">Nenhum atendimento registrado neste período.</div>
       ) : (
         <>
-          <UsageTable title="Por consultório" groups={byClinic} firstColumn="Consultório" maxBrl={Math.max(...byClinic.map((g) => g.cost_brl))} />
+          {isAdmin && <UsageTable title="Por consultório" groups={byClinic} firstColumn="Consultório" maxBrl={Math.max(...byClinic.map((g) => g.cost_brl))} />}
           <UsageTable title={PERIOD_TITLE[filters.granularity]} groups={byPeriod} firstColumn="Período" maxBrl={Math.max(...byPeriod.map((g) => g.cost_brl))} />
         </>
       )}

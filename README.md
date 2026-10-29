@@ -71,8 +71,9 @@ Next.js em `dashboard/`, servido pelo bot em `/painel`. Login por e-mail e senha
   Cada tratamento pode ter duracao propria (tabela na tela). Os horarios oferecidos seguem a duracao do
   tratamento, a partir do inicio do expediente, encaixando logo apos as consultas ja marcadas.
   O bot usa em ate 1 minuto, sem deploy.
-- **Uso e custos** (so admin) - mensagens, tokens e custo por consultorio, por dia/semana/mes.
-- **Usuarios** (so admin) - cria logins de admin ou de uma clinica (ve so a propria agenda e configuracao).
+- **Uso e custos** - mensagens, tokens e custo por dia/semana/mes (admin: todas as clinicas; clinica: so a dela).
+- **Usuarios** - admin cria logins de admin ou de qualquer clinica; usuario de clinica gerencia so os da propria clinica.
+- **Clinicas** (so admin) - cadastro de clinicas e do WhatsApp de cada uma.
 
 Primeiro acesso: com o banco sem usuarios, entre com `DASHBOARD_USER` / `DASHBOARD_PASSWORD`; isso cria o
 primeiro administrador. Depois os logins sao gerenciados em Usuarios.

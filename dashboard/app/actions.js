@@ -197,16 +197,26 @@ export async function changeOwnPassword(formData) {
   redirect(withMessage('/conta', 'ok', 'Senha alterada.'));
 }
 
-// ---- Usuarios (so admin) ----
+// ---- Usuarios (admin: todos; usuario de clinica: so os da propria clinica) ----
+
+// Usuario alvo que "me" pode gerenciar, ou null
+async function managedUser(me, id) {
+  const [[user]] = await pool.query('SELECT id, role, clinic_id FROM users WHERE id = ?', [id]);
+  if (!user) return null;
+  if (me.role === 'admin') return user;
+  return user.role === 'clinic' && user.clinic_id === me.clinicId ? user : null;
+}
 
 export async function createUser(formData) {
-  await requireSession({ admin: true });
+  const me = await requireSession();
+  const isAdmin = me.role === 'admin';
   const name = String(formData.get('name') || '').trim();
   // Login: qualquer nome de usuario (ou e-mail). Fica na coluna "email" da tabela users.
   const email = String(formData.get('email') || '').trim().toLowerCase();
   const password = String(formData.get('password') || '');
-  const role = formData.get('role') === 'admin' ? 'admin' : 'clinic';
-  const clinicId = role === 'clinic' ? String(formData.get('clinic') || '') : null;
+  // Usuario de clinica so cria usuarios da propria clinica
+  const role = isAdmin && formData.get('role') === 'admin' ? 'admin' : 'clinic';
+  const clinicId = role === 'admin' ? null : isAdmin ? String(formData.get('clinic') || '') : me.clinicId;
 
   if (!name || !email) redirect(withMessage('/usuarios', 'erro', 'Informe nome e usuário.'));
   if (!/^[a-z0-9._@-]{3,60}$/.test(email)) {
@@ -233,17 +243,20 @@ export async function createUser(formData) {
 }
 
 export async function toggleUser(formData) {
-  const me = await requireSession({ admin: true });
+  const me = await requireSession();
   const id = Number(formData.get('id'));
   if (id === me.id) redirect(withMessage('/usuarios', 'erro', 'Você não pode desativar o próprio usuário.'));
+  if (!(await managedUser(me, id))) redirect(withMessage('/usuarios', 'erro', 'Usuário não encontrado.'));
   await pool.query('UPDATE users SET active = 1 - active WHERE id = ?', [id]);
   redirect('/usuarios');
 }
 
 export async function resetPassword(formData) {
-  await requireSession({ admin: true });
+  const me = await requireSession();
+  const id = Number(formData.get('id'));
   const password = String(formData.get('password') || '');
   if (!password) redirect(withMessage('/usuarios', 'erro', 'Informe a senha.'));
-  await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), Number(formData.get('id'))]);
+  if (!(await managedUser(me, id))) redirect(withMessage('/usuarios', 'erro', 'Usuário não encontrado.'));
+  await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), id]);
   redirect(withMessage('/usuarios', 'ok', 'Senha alterada.'));
 }

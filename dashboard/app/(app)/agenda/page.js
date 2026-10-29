@@ -2,7 +2,6 @@ import Link from 'next/link';
 import Flash from '../../flash';
 import AppointmentForm from './form';
 import BlockForm from './block-form';
-import { unblockDay } from '../../actions';
 import { MonthView, WeekView } from './calendar';
 import { requireSession } from '../../../lib/auth';
 import { listAppointments } from '../../../lib/appointments';
@@ -77,23 +76,6 @@ export default async function AgendaPage({ searchParams }) {
 
       <Flash params={params} />
 
-      {(() => {
-        const blocked = (schedule.blockedDates || []).filter((d) => d >= range[0] && d <= range[1]).sort();
-        if (!blocked.length) return null;
-        return (
-          <section className="card blocked-days">
-            <strong>Dias bloqueados {view === 'mes' ? 'neste mês' : 'nesta semana'}:</strong>
-            {blocked.map((d) => (
-              <form key={d} action={unblockDay} className="blocked-day">
-                <input type="hidden" name="date" value={d} />
-                <input type="hidden" name="back" value={back} />
-                <span>{shortDate(d)}</span>
-                <button type="submit" className="secondary">Desbloquear</button>
-              </form>
-            ))}
-          </section>
-        );
-      })()}
 
       <details id="novo" className="card" open={Boolean(params.erro || params.novo)}>
         <summary>Novo agendamento</summary>

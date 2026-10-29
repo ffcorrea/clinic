@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { unblockDay } from '../../actions';
 import { STATUSES } from '../../../lib/appointments';
 import { addDays, fromMinutes, mondayOf, shortDate, today, toLocal, toMinutes, weekdayOf, WEEKDAYS } from '../../../lib/time';
 
@@ -52,6 +53,19 @@ function hourRange(schedule, days, appointments) {
   return [Math.floor(Math.min(...marks) / 60) * 60, Math.ceil(Math.max(...marks) / 60) * 60];
 }
 
+// Botao "Desbloquear" de um dia inteiro bloqueado (clicar na data)
+function UnblockButton({ date, back, className, children }) {
+  return (
+    <form action={unblockDay} className={className}>
+      <input type="hidden" name="date" value={date} />
+      <input type="hidden" name="back" value={back} />
+      <button type="submit" className="unblock" title={`Desbloquear ${shortDate(date)}`}>
+        {children}
+      </button>
+    </form>
+  );
+}
+
 export function WeekView({ days, appointments, schedule, href }) {
   const [from, to] = hourRange(schedule, days, appointments);
   const hours = Array.from({ length: (to - from) / 60 }, (_, i) => from + i * 60);
@@ -63,12 +77,20 @@ export function WeekView({ days, appointments, schedule, href }) {
       <div className="week" style={{ '--rows': (to - from) / SLOT }}>
         <div className="week-head">
           <div />
-          {days.map((date) => (
-            <div key={date} className={`week-day-name${date === now.date ? ' today' : ''}`}>
-              <span>{WEEKDAYS[weekdayOf(date)].slice(0, 3)}</span>
-              <strong>{shortDate(date)}</strong>
-            </div>
-          ))}
+          {days.map((date) =>
+            schedule.blockedDates?.includes(date) ? (
+              <UnblockButton key={date} date={date} back={href()} className={`week-day-name blocked${date === now.date ? ' today' : ''}`}>
+                <span>{WEEKDAYS[weekdayOf(date)].slice(0, 3)}</span>
+                <strong>{shortDate(date)}</strong>
+                <em>Desbloquear</em>
+              </UnblockButton>
+            ) : (
+              <div key={date} className={`week-day-name${date === now.date ? ' today' : ''}`}>
+                <span>{WEEKDAYS[weekdayOf(date)].slice(0, 3)}</span>
+                <strong>{shortDate(date)}</strong>
+              </div>
+            )
+          )}
         </div>
         <div className="week-body">
           <div className="hours">
@@ -145,10 +167,19 @@ export function MonthView({ month, appointments, schedule, href }) {
           if (date.slice(0, 7) !== month.slice(0, 7)) classes.push('other-month');
           if (closed) classes.push('closed');
           if (date === todayDate) classes.push('today');
+          // Dia inteiro bloqueado: clicar desbloqueia
+          if (schedule.blockedDates?.includes(date)) {
+            return (
+              <UnblockButton key={date} date={date} back={href()} className={`${classes.join(' ')} blocked`}>
+                <span className="month-day-number">{Number(date.slice(8))}</span>
+                <span className="month-note">Bloqueado</span>
+                <em>Desbloquear</em>
+              </UnblockButton>
+            );
+          }
           return (
             <Link key={date} href={href({ ver: 'semana', data: date })} className={classes.join(' ')} title="Ver a semana">
               <span className="month-day-number">{Number(date.slice(8))}</span>
-              {schedule.blockedDates?.includes(date) && <span className="month-note">Bloqueado</span>}
               {active.slice(0, MONTH_PREVIEW).map((a) => (
                 <span key={a.id} className={`chip status-${a.status} source-${a.source}`} title={tooltip(a)}>
                   {a.start} {a.patient_name}

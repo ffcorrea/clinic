@@ -418,6 +418,23 @@ main.wide { max-width: 1400px; }
 .qr { display: block; width: 240px; height: 240px; margin: 0 0 18px; border-radius: 14px; background: #fff; padding: 8px; }
 .webhook-form { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
 
-/* ---- Dias bloqueados (agenda) ---- */
-.blocked-days { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding: 14px 20px; }
-.blocked-day { display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 12px; border-radius: 999px; background: var(--fill); font-variant-numeric: tabular-nums; font-weight: 500; }
+/* ---- Dias bloqueados: clicar na data desbloqueia ---- */
+form.week-day-name.blocked, form.month-day.blocked { margin: 0; padding: 0; }
+.unblock {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: inherit;
+  gap: inherit;
+  padding: inherit;
+}
+form.week-day-name.blocked .unblock { align-items: center; gap: 2px; padding: 12px 6px 10px; }
+form.month-day.blocked .unblock { align-items: flex-start; gap: 4px; padding: 8px; min-height: 118px; }
+.unblock em { font-style: normal; font-size: 11px; font-weight: 600; color: var(--accent); }
+.unblock:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.unblock:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+form.week-day-name.blocked strong { text-decoration: line-through; color: var(--muted); }

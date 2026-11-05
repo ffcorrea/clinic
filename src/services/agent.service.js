@@ -2,6 +2,7 @@ const axios = require('axios');
 const db = require('../db');
 const agenda = require('./agenda.service');
 const requests = require('./requests.service');
+const clients = require('./clients.service');
 const clinicService = require('./clinic.service');
 const time = require('../lib/time');
 
@@ -173,7 +174,16 @@ async function buildContext(clinic, phone, agendaOn) {
     return lines.join('\n');
   }
 
-  const [upcoming, cancelled] = await Promise.all([agenda.upcoming(clinic.id, phone), agenda.recentlyCancelled(clinic.id, phone)]);
+  const [upcoming, cancelled, known] = await Promise.all([
+    agenda.upcoming(clinic.id, phone),
+    agenda.recentlyCancelled(clinic.id, phone),
+    clients.forPhone(clinic.id, phone).catch(() => []),
+  ]);
+  if (known.length === 1) {
+    lines.push(`Cliente cadastrado neste telefone: ${known[0].name}. Não pergunte o nome dela de novo; se a consulta for para outra pessoa, pergunte o nome dessa pessoa.`);
+  } else if (known.length > 1) {
+    lines.push(`Clientes cadastrados neste telefone: ${known.map((c) => c.name).join(', ')}. Pergunte para quem é o atendimento.`);
+  }
   const describe = (a) => `- id ${a.id}: ${a.label}${a.service ? ` (${a.service})` : ''}`;
   lines.push(
     'Agenda deste paciente agora (vale mais que o histórico da conversa: a recepção pode ter cancelado ou remarcado pelo painel):',

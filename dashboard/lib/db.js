@@ -14,3 +14,19 @@ export const pool =
   });
 
 if (process.env.NODE_ENV !== 'production') globalForDb.mysqlPool = pool;
+
+// Executa fn(conn) numa transacao: desfaz tudo se fn lancar erro
+export async function transaction(fn) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const result = await fn(conn);
+    await conn.commit();
+    return result;
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
+}

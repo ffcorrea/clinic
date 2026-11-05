@@ -37,6 +37,16 @@ Next.js em `dashboard/`, servido pelo bot em `/painel`. Login por e-mail e senha
   o bot nao oferece horario bloqueado. Almoco fixo vai no expediente da Configuracao (09:00-12:00, 13:00-18:00).
 - **Recados** - o que o bot anotou para a recepcao responder (valores, procedimento fora da lista, convenio,
   urgencia), com link para o WhatsApp do paciente e botao "Resolvido". O menu mostra quantos estao em aberto.
+- **Clientes** - cadastro com nome, telefone, CPF, nascimento, CEP (preenche o endereco pelo ViaCEP) e observacoes.
+  O vinculo e pelo telefone, ignorando o 55 e o nono digito: consulta marcada pelo bot ou pela agenda acha ou cria
+  o cliente; na agenda, digitar o telefone preenche o nome; recados mostram o cliente; o bot chama pelo nome e nao
+  pergunta de novo. Telefone nao e unico: outra pessoa com o mesmo WhatsApp (familia) vira outro cliente.
+  "Importar da agenda" cria os clientes das consultas antigas.
+- **Atendimentos** - orcamento por cliente com tratamentos e materiais. Status: Orcamento, Enviado, Aceito e Pago.
+  Fluxo: marque os itens e envie (cada envio e uma parte, so uma aguarda aprovacao por vez) -> mande o link pelo
+  WhatsApp -> o cliente abre `/painel/orcamento/<token>`, sem login, e aceita (fica um comprovante com data, IP e
+  navegador) -> registre os pagamentos, de uma vez, em partes ou por item. Itens enviados nao mudam mais; "Cancelar
+  envio" devolve os que aguardam aprovacao para edicao.
 - **Configuracao** - nome, tipo, profissional, tratamentos, Instagram, observacoes e a agenda
   (expediente por dia, duracao padrao, antecedencia, dias bloqueados).
   Cada tratamento pode ter duracao propria (tabela na tela). Os horarios oferecidos seguem a duracao do
@@ -49,7 +59,7 @@ Next.js em `dashboard/`, servido pelo bot em `/painel`. Login por e-mail e senha
 Primeiro acesso: com o banco sem usuarios, entre com `DASHBOARD_USER` / `DASHBOARD_PASSWORD`; isso cria o
 primeiro administrador. Depois os logins sao gerenciados em Usuarios.
 
-O bot cria as tabelas sozinho ao iniciar (`usage_events`, `clinics`, `users`, `appointments`, `contact_requests`). Todos os
+O bot cria as tabelas sozinho ao iniciar (`usage_events`, `clinics`, `users`, `appointments`, `contact_requests`, `clients`, `quotes`, `quote_sends`, `quote_items`, `quote_payments`, `quote_acceptances`). Todos os
 consultorios ficam na tabela `clinics` (nao ha mais arquivos de configuracao); o bot le a tabela a cada 30s.
 
 Variaveis:

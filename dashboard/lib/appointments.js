@@ -1,5 +1,7 @@
+import { findClient, resolveClient } from './clients';
 import { durationFor } from './clinics';
 import { pool } from './db';
+import { normalizePhone, phoneKey } from './format';
 import { fromLocal, isIsoDate, isTime, toLocal } from './time';
 
 export const STATUSES = {
@@ -44,7 +46,7 @@ export function parseAppointmentForm(form, settings) {
   const durationText = String(form.get('duration') || '').trim();
   const duration = durationText ? Number(durationText) : durationFor(settings, service);
   const patientName = String(form.get('patient_name') || '').trim();
-  const phone = String(form.get('phone') || '').replace(/\D/g, '');
+  const phone = normalizePhone(form.get('phone'));
 
   if (!isIsoDate(date) || !isTime(start)) return { error: 'Informe data e horário.' };
   if (!Number.isInteger(duration) || duration < 5 || duration > 600) return { error: 'Duração inválida.' };
@@ -98,10 +100,11 @@ export function createAppointment(clinicId, data) {
   return withLock(clinicId, async (conn) => {
     const problem = await conflict(conn, clinicId, data);
     if (problem) return problem;
+    const clientId = await resolveClient(clinicId, { phone: data.phone, name: data.patientName });
     await conn.query(
-      `INSERT INTO appointments (clinic_id, patient_name, phone, service, starts_at, ends_at, status, source, notes)
-       VALUES (?, ?, ?, ?, ?, ?, 'scheduled', 'manual', ?)`,
-      [clinicId, data.patientName, data.phone, data.service, data.startsAt, data.endsAt, data.notes]
+      `INSERT INTO appointments (clinic_id, client_id, patient_name, phone, service, starts_at, ends_at, status, source, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', 'manual', ?)`,
+      [clinicId, clientId, data.patientName, data.phone, data.service, data.startsAt, data.endsAt, data.notes]
     );
     return null;
   });
@@ -126,15 +129,26 @@ export function createBlock(clinicId, { date, start, end, reason }) {
   });
 }
 
+// Cliente da consulta editada. Mesmo telefone e nome sem cadastro: e correcao do nome, nao outra pessoa.
+async function clientForUpdate(clinicId, id, data) {
+  const found = await findClient(clinicId, { phone: data.phone, name: data.patientName });
+  if (found) return found.id;
+  const [[current]] = await pool.query('SELECT client_id, phone, source FROM appointments WHERE id = ? AND clinic_id = ?', [id, clinicId]);
+  if (current?.source === 'block') return null;
+  if (current?.client_id && phoneKey(current.phone) === phoneKey(data.phone)) return current.client_id;
+  return resolveClient(clinicId, { phone: data.phone, name: data.patientName });
+}
+
 export function updateAppointment(clinicId, id, data) {
   return withLock(clinicId, async (conn) => {
     const problem = await conflict(conn, clinicId, data, id);
     if (problem) return problem;
+    const clientId = await clientForUpdate(clinicId, id, data);
     await conn.query(
-      `UPDATE appointments SET patient_name = ?, phone = ?, service = ?, starts_at = ?, ends_at = ?, notes = ?,
+      `UPDATE appointments SET client_id = ?, patient_name = ?, phone = ?, service = ?, starts_at = ?, ends_at = ?, notes = ?,
               updated_at = UTC_TIMESTAMP()
         WHERE id = ? AND clinic_id = ?`,
-      [data.patientName, data.phone, data.service, data.startsAt, data.endsAt, data.notes, id, clinicId]
+      [clientId, data.patientName, data.phone, data.service, data.startsAt, data.endsAt, data.notes, id, clinicId]
     );
     return null;
   });

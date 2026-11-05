@@ -16,6 +16,8 @@ import {
   saveWhatsapp,
   setClinicActive,
 } from '../lib/clinics';
+import { importFromAgenda, parseClientForm, saveClient } from '../lib/clients';
+import { acceptQuote, addPayment, cancelSend, deleteItem, deletePayment, parseQuoteForm, saveQuote, sendItems } from '../lib/quotes';
 import { setRequestStatus } from '../lib/requests';
 import { setupWebhook } from '../lib/zapi';
 import { addDays, isIsoDate, isTime } from '../lib/time';
@@ -135,6 +137,88 @@ export async function resolveRequest(formData) {
   const clinicId = await clinicOf();
   await setRequestStatus(clinicId, Number(formData.get('id')), String(formData.get('status')));
   redirect(String(formData.get('back') || '/recados'));
+}
+
+// ---- Clientes ----
+
+export async function saveClientAction(_prev, formData) {
+  const clinicId = await clinicOf();
+  const { data, error } = parseClientForm(formData);
+  if (error) return { error };
+  const result = await saveClient(clinicId, Number(formData.get('id')) || null, data);
+  if (result.error) return result;
+  redirect(withMessage(`/clientes/${result.id}`, 'ok', 'Cliente salvo.'));
+}
+
+export async function importClientsAction() {
+  const clinicId = await clinicOf();
+  const linked = await importFromAgenda(clinicId);
+  redirect(withMessage('/clientes', 'ok', linked ? `${linked} agendamento(s) vinculado(s) a clientes.` : 'Nenhum agendamento novo para vincular.'));
+}
+
+// ---- Atendimentos ----
+
+export async function saveQuoteAction(_prev, formData) {
+  const clinicId = await clinicOf();
+  const { data, error } = parseQuoteForm(formData);
+  if (error) return { error };
+  const result = await saveQuote(clinicId, Number(formData.get('id')) || null, data);
+  if (result.error) return result;
+  redirect(withMessage(`/atendimentos/${result.value}`, 'ok', 'Atendimento salvo.'));
+}
+
+const quotePath = (id) => `/atendimentos/${id}`;
+
+export async function sendQuoteAction(quoteId, itemIds) {
+  const clinicId = await clinicOf();
+  const { error } = await sendItems(clinicId, quoteId, itemIds);
+  redirect(error ? withMessage(quotePath(quoteId), 'erro', error) : withMessage(quotePath(quoteId), 'ok', 'Link pronto: envie pelo WhatsApp.'));
+}
+
+export async function cancelSendAction(formData) {
+  const clinicId = await clinicOf();
+  const quoteId = Number(formData.get('quote_id'));
+  const { error } = await cancelSend(clinicId, quoteId);
+  redirect(error ? withMessage(quotePath(quoteId), 'erro', error) : `${quotePath(quoteId)}/editar`);
+}
+
+export async function deleteItemAction(quoteId, itemId) {
+  const clinicId = await clinicOf();
+  const { error } = await deleteItem(clinicId, quoteId, itemId);
+  redirect(error ? withMessage(quotePath(quoteId), 'erro', error) : quotePath(quoteId));
+}
+
+export async function addPaymentAction(formData) {
+  const clinicId = await clinicOf();
+  const quoteId = Number(formData.get('quote_id'));
+  const { error } = await addPayment(clinicId, quoteId, {
+    itemId: Number(formData.get('item_id')) || null,
+    amount: String(formData.get('amount') || ''),
+    paidOn: String(formData.get('paid_on') || ''),
+    method: String(formData.get('method') || ''),
+    note: String(formData.get('note') || '').trim().slice(0, 255) || null,
+  });
+  redirect(error ? withMessage(quotePath(quoteId), 'erro', error) : withMessage(quotePath(quoteId), 'ok', 'Pagamento registrado.'));
+}
+
+export async function deletePaymentAction(formData) {
+  const clinicId = await clinicOf();
+  const quoteId = Number(formData.get('quote_id'));
+  const { error } = await deletePayment(clinicId, quoteId, Number(formData.get('id')));
+  redirect(error ? withMessage(quotePath(quoteId), 'erro', error) : quotePath(quoteId));
+}
+
+// Publico, sem sessao: a credencial e o token do link
+export async function acceptQuoteAction(token, sendId, browser) {
+  const h = await headers();
+  const { error } = await acceptQuote(String(token), Number(sendId), {
+    ip: h.get('x-forwarded-for')?.split(',')[0].trim() || h.get('x-real-ip'),
+    userAgent: h.get('user-agent'),
+    acceptLanguage: h.get('accept-language'),
+    browser: browser && typeof browser === 'object' ? browser : {},
+  });
+  if (error) return { error };
+  redirect(`/orcamento/${token}`);
 }
 
 // ---- Configuracao ----

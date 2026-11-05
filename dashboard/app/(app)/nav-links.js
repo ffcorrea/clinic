@@ -9,6 +9,8 @@ export default function NavLinks({ isAdmin, openRequests = 0 }) {
   const links = [
     ['/agenda', 'Agenda'],
     ['/recados', 'Recados', openRequests],
+    ['/clientes', 'Clientes'],
+    ['/atendimentos', 'Atendimentos'],
     ['/configuracao', 'Configuração'],
     ['/uso', 'Uso e custos'],
     ['/usuarios', 'Usuários'],

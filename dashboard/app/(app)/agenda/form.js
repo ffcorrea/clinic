@@ -1,7 +1,8 @@
 import { saveAppointment } from '../../actions';
+import PatientFields from './patient-fields';
 
 // Formulario de agendamento (novo ou edicao)
-export default function AppointmentForm({ appointment, defaults, services, back, submitLabel }) {
+export default function AppointmentForm({ appointment, defaults, services, clients, back, submitLabel }) {
   const a = appointment || {};
   const isBlock = a.source === 'block';
   return (
@@ -21,15 +22,13 @@ export default function AppointmentForm({ appointment, defaults, services, back,
         <input type="number" name="duration" min="5" max="600" step="5" defaultValue={a.duration || ''} placeholder="Automática" />
         <span className="hint">Em branco: a do tratamento ({defaults.duration} min se não tiver)</span>
       </label>
-      <label className="span-2">
-        {isBlock ? 'Motivo do bloqueio' : 'Paciente'}
-        <input name="patient_name" defaultValue={a.patient_name} required />
-      </label>
-      {!isBlock && (<>
-      <label>
-        Telefone (WhatsApp)
-        <input name="phone" inputMode="tel" placeholder="5511999999999" defaultValue={a.phone || ''} />
-      </label>
+      {isBlock ? (
+        <label className="span-2">
+          Motivo do bloqueio
+          <input name="patient_name" defaultValue={a.patient_name} required />
+        </label>
+      ) : (<>
+      <PatientFields clients={clients} name={a.patient_name} phone={a.phone || ''} />
       <label className="span-3">
         Tratamento
         <input name="service" list="services" defaultValue={a.service || ''} />

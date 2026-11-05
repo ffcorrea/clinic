@@ -1,4 +1,5 @@
 const db = require('../db');
+const clients = require('./clients.service');
 const time = require('../lib/time');
 
 // Agenda de cada clinica. Configuracao (settings.schedule), editavel no painel:
@@ -150,10 +151,15 @@ async function book(clinicId, rawSchedule, { date, time: slot, duration, patient
     if (overlaps(startsAt, endsAt, await busyBetween(conn, clinicId, startsAt, endsAt))) {
       return { ok: false, reason: 'esse horario acabou de ser ocupado' };
     }
+    // Sem o cadastro a consulta ainda vale: o painel vincula depois pelo telefone
+    const clientId = await clients.resolve(clinicId, { phone, name: patientName }).catch((error) => {
+      console.error(`[${clinicId}] Erro ao vincular cliente:`, error.message);
+      return null;
+    });
     const [result] = await conn.query(
-      `INSERT INTO appointments (clinic_id, patient_name, phone, service, starts_at, ends_at, status, source, notes)
-       VALUES (?, ?, ?, ?, ?, ?, 'scheduled', 'agent', ?)`,
-      [clinicId, patientName, phone, service || null, startsAt, endsAt, notes || null]
+      `INSERT INTO appointments (clinic_id, client_id, patient_name, phone, service, starts_at, ends_at, status, source, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', 'agent', ?)`,
+      [clinicId, clientId, patientName, phone, service || null, startsAt, endsAt, notes || null]
     );
     return { ok: true, appointment: { id: result.insertId, startsAt, label: time.describe(startsAt) } };
   });

@@ -10,6 +10,9 @@ function isDashboardPath(pathname) {
   return pathname === BASE_PATH || pathname.startsWith(`${BASE_PATH}/`);
 }
 
+// Sem query string, que traz dados do cliente, e sem o token do link publico
+const safePath = (pathname) => pathname.replace(/(\/orcamento\/)[^/]+/, '$1***');
+
 function mountDashboard(app) {
   // Sem build (ex: dev local do bot), o painel fica de fora; rode-o com `npm run dev` em dashboard/
   if (!fs.existsSync(path.join(DASHBOARD_DIR, '.next', 'BUILD_ID'))) {
@@ -18,7 +21,8 @@ function mountDashboard(app) {
   }
 
   const next = require(require.resolve('next', { paths: [DASHBOARD_DIR] }));
-  const nextApp = next({ dev: false, dir: DASHBOARD_DIR });
+  // Porta real: sem ela o Next busca a pagina seguinte aos formularios em localhost:3000
+  const nextApp = next({ dev: false, dir: DASHBOARD_DIR, hostname: 'localhost', port: Number(process.env.PORT) || 3000 });
   const handle = nextApp.getRequestHandler();
 
   const ready = nextApp.prepare().then(
@@ -32,6 +36,13 @@ function mountDashboard(app) {
   app.use((req, res, nextMiddleware) => {
     if (!isDashboardPath(req.path)) return nextMiddleware();
 
+    // Guarda antes: o Next tira o /painel de req.url
+    const line = `${req.method} ${safePath(req.path)}`;
+    res.on('finish', () => {
+      if (res.statusCode >= 500) console.error(`[painel] ${res.statusCode} ${line}`);
+      else if (res.statusCode >= 400) console.warn(`[painel] ${res.statusCode} ${line}`);
+    });
+
     // Formulario enviado antes do JavaScript carregar: o Next redireciona sem o basePath
     // (ex: "/agenda" em vez de "/painel/agenda"). Corrige o Location aqui.
     const setHeader = res.setHeader.bind(res);
@@ -44,7 +55,10 @@ function mountDashboard(app) {
 
     ready
       .then(() => handle(req, res))
-      .catch(() => res.status(503).send('Painel indisponivel'));
+      .catch((error) => {
+        console.error('[painel] Erro ao atender a requisicao:', error.message);
+        res.status(503).send('Painel indisponivel');
+      });
   });
 }
 

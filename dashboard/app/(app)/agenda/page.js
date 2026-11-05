@@ -5,6 +5,7 @@ import BlockForm from './block-form';
 import { MonthView, WeekView } from './calendar';
 import { requireSession } from '../../../lib/auth';
 import { listAppointments } from '../../../lib/appointments';
+import { clientOptions } from '../../../lib/clients';
 import { getClinic, serviceList } from '../../../lib/clinics';
 import { currentClinicId } from '../../../lib/current';
 import { addDays, addMonths, isIsoDate, isTime, mondayOf, monthLabel, shortDate, startOfMonth, today } from '../../../lib/time';
@@ -83,6 +84,7 @@ export default async function AgendaPage({ searchParams }) {
           key={`${newDate}-${newTime}`}
           defaults={{ date: newDate, start: newTime, duration: schedule.slotMinutes || 60 }}
           services={serviceList(clinic.settings).map((s) => s.name)}
+          clients={await clientOptions(clinicId)}
           back={back}
           submitLabel="Agendar"
         />

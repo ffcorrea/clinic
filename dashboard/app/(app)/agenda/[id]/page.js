@@ -5,6 +5,7 @@ import Flash from '../../../flash';
 import AppointmentForm from '../form';
 import { requireSession } from '../../../../lib/auth';
 import { getAppointment, STATUSES } from '../../../../lib/appointments';
+import { clientOptions } from '../../../../lib/clients';
 import { getClinic, serviceList } from '../../../../lib/clinics';
 import { currentClinicId } from '../../../../lib/current';
 
@@ -32,13 +33,21 @@ export default async function EditAppointmentPage({ params, searchParams }) {
                 <a href={`https://wa.me/${appointment.phone}`} target="_blank" rel="noreferrer">WhatsApp {appointment.phone}</a>
               </>
             )}
+            {appointment.client_id && (
+              <>
+                {' · '}
+                <Link href={`/clientes/${appointment.client_id}`}>Ficha do cliente</Link>
+                {' · '}
+                <Link href={`/atendimentos/novo?cliente=${appointment.client_id}`}>Novo atendimento</Link>
+              </>
+            )}
           </p>
         </div>
         <Link href={back}>← Voltar para a agenda</Link>
       </header>
       <Flash params={await searchParams} />
       <section className="card">
-        <AppointmentForm appointment={appointment} defaults={{ duration: clinic.settings.schedule?.slotMinutes || 60 }} services={serviceList(clinic.settings).map((s) => s.name)} back={back} submitLabel="Salvar" />
+        <AppointmentForm appointment={appointment} defaults={{ duration: clinic.settings.schedule?.slotMinutes || 60 }} services={serviceList(clinic.settings).map((s) => s.name)} clients={await clientOptions(clinicId)} back={back} submitLabel="Salvar" />
       </section>
       {appointment.source === 'block' ? (
         <form action={changeStatus} className="card">

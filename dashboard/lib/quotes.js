@@ -199,8 +199,13 @@ export function saveQuote(clinicId, id, data) {
       id = result.insertId;
     }
 
+    // Provisorio: bancos criados antes de sair a opcao de materiais ainda exigem a coluna kind.
+    // Remover este desvio depois de rodar ALTER TABLE quote_items DROP COLUMN kind.
+    const [legacyKind] = await conn.query("SHOW COLUMNS FROM quote_items LIKE 'kind'");
+    const kindColumn = legacyKind.length ? ", kind = 'tratamento'" : '';
+
     for (const item of data.items) {
-      await conn.query('INSERT INTO quote_items (quote_id, description, quantity, unit_cents, sort_order) VALUES (?, ?, ?, ?, ?)', [
+      await conn.query(`INSERT INTO quote_items SET quote_id = ?, description = ?, quantity = ?, unit_cents = ?, sort_order = ?${kindColumn}`, [
         id,
         item.description,
         item.quantity,

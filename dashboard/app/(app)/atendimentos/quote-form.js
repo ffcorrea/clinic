@@ -3,12 +3,10 @@
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { saveQuoteAction } from '../../actions';
-import { KIND_LABEL, centsToInput, formatBRL, formatPhone, itemsTotal, parseCents } from '../../../lib/format';
-
-const KINDS = Object.keys(KIND_LABEL);
+import { centsToInput, formatBRL, formatPhone, itemsTotal, parseCents } from '../../../lib/format';
 
 let nextKey = 0;
-const newLine = (kind) => ({ key: nextKey++, kind, description: '', quantity: '1', value: '' });
+const newLine = () => ({ key: nextKey++, description: '', quantity: '1', value: '' });
 
 function lineTotal(line) {
   const quantity = Number(line.quantity.replace(',', '.')) || 0;
@@ -28,11 +26,8 @@ export default function QuoteForm({ quote, clients, services, initialClient, tod
   const [lines, setLines] = useState(() => {
     const existing = (quote?.items ?? [])
       .filter((i) => i.send_id === null)
-      .map((i) => ({ key: nextKey++, kind: i.kind, description: i.description, quantity: String(i.quantity).replace('.', ','), value: centsToInput(i.unit_cents) }));
-    return KINDS.flatMap((kind) => {
-      const ofKind = existing.filter((l) => l.kind === kind);
-      return ofKind.length ? ofKind : [newLine(kind)];
-    });
+      .map((i) => ({ key: nextKey++, description: i.description, quantity: String(i.quantity).replace('.', ','), value: centsToInput(i.unit_cents) }));
+    return existing.length ? existing : [newLine()];
   });
 
   const update = (key, field, value) => setLines((all) => all.map((l) => (l.key === key ? { ...l, [field]: value } : l)));
@@ -41,7 +36,7 @@ export default function QuoteForm({ quote, clients, services, initialClient, tod
   return (
     <form action={action}>
       {quote && <input type="hidden" name="id" value={quote.id} />}
-      <input type="hidden" name="items" value={JSON.stringify(lines.map(({ kind, description, quantity, value }) => ({ kind, description, quantity, value })))} />
+      <input type="hidden" name="items" value={JSON.stringify(lines.map(({ description, quantity, value }) => ({ description, quantity, value })))} />
 
       <section className="card grid-form">
         <label className="span-2">
@@ -70,30 +65,28 @@ export default function QuoteForm({ quote, clients, services, initialClient, tod
         </label>
       </section>
 
-      {KINDS.map((kind) => (
-        <section key={kind} className="card">
-          <div className="section-head">
-            <h2>{KIND_LABEL[kind]}</h2>
-            <button type="button" className="secondary" onClick={() => setLines((all) => [...all, newLine(kind)])}>Adicionar</button>
+      <section className="card">
+        <div className="section-head">
+          <h2>Tratamentos</h2>
+          <button type="button" className="secondary" onClick={() => setLines((all) => [...all, newLine()])}>Adicionar</button>
+        </div>
+        <div className="items-head">
+          <span>Descrição</span>
+          <span>Qtd</span>
+          <span>Valor unitário (R$)</span>
+          <span className="num">Total</span>
+          <span />
+        </div>
+        {lines.map((l) => (
+          <div key={l.key} className="items-row">
+            <input aria-label="Descrição" list="services" value={l.description} onChange={(e) => update(l.key, 'description', e.target.value)} />
+            <input aria-label="Quantidade" inputMode="decimal" value={l.quantity} onChange={(e) => update(l.key, 'quantity', e.target.value)} />
+            <input aria-label="Valor unitário" inputMode="decimal" placeholder="0,00" value={l.value} onChange={(e) => update(l.key, 'value', e.target.value)} />
+            <span className="num">{formatBRL(lineTotal(l))}</span>
+            <button type="button" className="secondary" aria-label="Remover item" onClick={() => setLines((all) => all.filter((x) => x.key !== l.key))}>✕</button>
           </div>
-          <div className="items-head">
-            <span>Descrição</span>
-            <span>Qtd</span>
-            <span>Valor unitário (R$)</span>
-            <span className="num">Total</span>
-            <span />
-          </div>
-          {lines.filter((l) => l.kind === kind).map((l) => (
-            <div key={l.key} className="items-row">
-              <input aria-label="Descrição" list={kind === 'tratamento' ? 'services' : undefined} value={l.description} onChange={(e) => update(l.key, 'description', e.target.value)} />
-              <input aria-label="Quantidade" inputMode="decimal" value={l.quantity} onChange={(e) => update(l.key, 'quantity', e.target.value)} />
-              <input aria-label="Valor unitário" inputMode="decimal" placeholder="0,00" value={l.value} onChange={(e) => update(l.key, 'value', e.target.value)} />
-              <span className="num">{formatBRL(lineTotal(l))}</span>
-              <button type="button" className="secondary" aria-label="Remover item" onClick={() => setLines((all) => all.filter((x) => x.key !== l.key))}>✕</button>
-            </div>
-          ))}
-        </section>
-      ))}
+        ))}
+      </section>
       <datalist id="services">
         {services.map((s) => (
           <option key={s} value={s} />

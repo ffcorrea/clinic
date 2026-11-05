@@ -30,7 +30,7 @@ export default function AcceptForm({ token, sendId, label }) {
     <div className="accept">
       <label className="accept-check">
         <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-        Li e concordo com os tratamentos, materiais e valores descritos neste orçamento.
+        Li e concordo com os tratamentos e valores descritos neste orçamento.
       </label>
       <button type="button" onClick={accept} disabled={!agreed || pending}>{pending ? 'Registrando aceite…' : label}</button>
       {error && <div className="alert error">{error}</div>}

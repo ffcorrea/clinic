@@ -88,7 +88,7 @@ export async function countByStatus(clinicId) {
 async function complete(quote) {
   const [[[client]], [items], [sends], [payments]] = await Promise.all([
     pool.query('SELECT id, name, phone FROM clients WHERE id = ?', [quote.client_id]),
-    pool.query('SELECT id, quote_id, send_id, kind, description, quantity, unit_cents FROM quote_items WHERE quote_id = ? ORDER BY sort_order, id', [quote.id]),
+    pool.query('SELECT id, quote_id, send_id, description, quantity, unit_cents FROM quote_items WHERE quote_id = ? ORDER BY sort_order, id', [quote.id]),
     pool.query('SELECT id, part, sent_at, accepted_at FROM quote_sends WHERE quote_id = ? ORDER BY part', [quote.id]),
     pool.query(
       "SELECT id, item_id, DATE_FORMAT(paid_on, '%Y-%m-%d') AS paid_on, amount_cents, method, note FROM quote_payments WHERE quote_id = ? ORDER BY paid_on, id",
@@ -149,13 +149,12 @@ export function parseQuoteForm(form) {
     const description = String(line.description ?? '').trim();
     const value = String(line.value ?? '').trim();
     if (!description && !value) continue; // linha em branco
-    if (line.kind !== 'tratamento' && line.kind !== 'material') return { error: 'Tipo de item inválido.' };
-    if (!description) return { error: `Informe a descrição de cada ${line.kind}.` };
+    if (!description) return { error: 'Informe a descrição de cada tratamento.' };
     const quantity = Number(String(line.quantity ?? '1').replace(',', '.'));
     if (!Number.isFinite(quantity) || quantity <= 0) return { error: `Quantidade inválida em "${description}".` };
     const unitCents = parseCents(value);
     if (unitCents === null || quantity * unitCents > MAX_CENTS) return { error: `Valor inválido em "${description}".` };
-    items.push({ kind: line.kind, description, quantity, unitCents });
+    items.push({ description, quantity, unitCents });
   }
 
   const text = (name) => String(form.get(name) || '').trim() || null;
@@ -201,9 +200,8 @@ export function saveQuote(clinicId, id, data) {
     }
 
     for (const item of data.items) {
-      await conn.query('INSERT INTO quote_items (quote_id, kind, description, quantity, unit_cents, sort_order) VALUES (?, ?, ?, ?, ?, ?)', [
+      await conn.query('INSERT INTO quote_items (quote_id, description, quantity, unit_cents, sort_order) VALUES (?, ?, ?, ?, ?)', [
         id,
-        item.kind,
         item.description,
         item.quantity,
         item.unitCents,
@@ -357,7 +355,7 @@ export function acceptQuote(token, sendId, { ip, userAgent, acceptLanguage, brow
     await conn.query('UPDATE quotes SET accepted_at = UTC_TIMESTAMP() WHERE id = ?', [quote.id]);
     await recalcStatus(conn, quote.id);
 
-    const [items] = await conn.query('SELECT kind, description, quantity, unit_cents FROM quote_items WHERE send_id = ? ORDER BY sort_order, id', [sendId]);
+    const [items] = await conn.query('SELECT description, quantity, unit_cents FROM quote_items WHERE send_id = ? ORDER BY sort_order, id', [sendId]);
     const content = JSON.stringify({
       atendimento: quote.id,
       clinica: quote.clinic_id,

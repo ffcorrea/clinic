@@ -1,7 +1,6 @@
 // Formatos das telas de clientes e atendimentos. Sem banco: tambem roda no navegador.
 
 export const STATUS_LABEL = { orcamento: 'Orçamento', enviado: 'Enviado', aceito: 'Aceito', pago: 'Pago' };
-export const KIND_LABEL = { tratamento: 'Tratamentos', material: 'Materiais' };
 export const PAYMENT_METHODS = ['PIX', 'Dinheiro', 'Cartão de débito', 'Cartão de crédito', 'Transferência', 'Boleto'];
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });

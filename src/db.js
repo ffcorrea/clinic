@@ -128,7 +128,6 @@ const SCHEMA = [
     id         bigint unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
     quote_id   bigint unsigned NOT NULL,
     send_id    bigint unsigned COMMENT 'NULL = ainda nao enviado ao cliente',
-    kind       varchar(20) NOT NULL COMMENT 'tratamento | material',
     description text NOT NULL,
     quantity   double NOT NULL DEFAULT 1,
     unit_cents int NOT NULL DEFAULT 0,

@@ -42,7 +42,7 @@ Next.js em `dashboard/`, servido pelo bot em `/painel`. Login por e-mail e senha
   o cliente; na agenda, digitar o telefone preenche o nome; recados mostram o cliente; o bot chama pelo nome e nao
   pergunta de novo. Telefone nao e unico: outra pessoa com o mesmo WhatsApp (familia) vira outro cliente.
   "Importar da agenda" cria os clientes das consultas antigas.
-- **Atendimentos** - orcamento por cliente com tratamentos e materiais. Status: Orcamento, Enviado, Aceito e Pago.
+- **Atendimentos** - orcamento por cliente com os tratamentos e valores. Status: Orcamento, Enviado, Aceito e Pago.
   Fluxo: marque os itens e envie (cada envio e uma parte, so uma aguarda aprovacao por vez) -> mande o link pelo
   WhatsApp -> o cliente abre `/painel/orcamento/<token>`, sem login, e aceita (fica um comprovante com data, IP e
   navegador) -> registre os pagamentos, de uma vez, em partes ou por item. Itens enviados nao mudam mais; "Cancelar

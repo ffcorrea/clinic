@@ -165,7 +165,7 @@ export default async function QuotePage({ params, searchParams }) {
                     ? 'Marque no quadro de itens o que vai para aprovação e clique em Enviar.'
                     : link
                       ? 'Todos os itens já foram enviados. Para pedir aprovação de mais itens, edite o atendimento.'
-                      : 'Adicione tratamentos ou materiais para enviar ao cliente.'}
+                      : 'Adicione tratamentos para enviar ao cliente.'}
                 </p>
               </div>
             )}

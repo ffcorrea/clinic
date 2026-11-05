@@ -22,9 +22,19 @@ import { setRequestStatus } from '../lib/requests';
 import { setupWebhook } from '../lib/zapi';
 import { addDays, isIsoDate, isTime } from '../lib/time';
 import { currentClinicId } from '../lib/current';
+import { logRefused, safePath } from '../lib/log';
 import { pool } from '../lib/db';
 
-const withMessage = (path, key, message) => `${path}${path.includes('?') ? '&' : '?'}${key}=${encodeURIComponent(message)}`;
+function withMessage(path, key, message) {
+  if (key === 'erro') logRefused(safePath(path), message);
+  return `${path}${path.includes('?') ? '&' : '?'}${key}=${encodeURIComponent(message)}`;
+}
+
+// Erro de validacao devolvido ao formulario
+function refused(where, error) {
+  logRefused(where, error);
+  return { error };
+}
 
 // ---- Login ----
 
@@ -144,9 +154,9 @@ export async function resolveRequest(formData) {
 export async function saveClientAction(_prev, formData) {
   const clinicId = await clinicOf();
   const { data, error } = parseClientForm(formData);
-  if (error) return { error };
+  if (error) return refused('salvar cliente', error);
   const result = await saveClient(clinicId, Number(formData.get('id')) || null, data);
-  if (result.error) return result;
+  if (result.error) return refused('salvar cliente', result.error);
   redirect(withMessage(`/clientes/${result.id}`, 'ok', 'Cliente salvo.'));
 }
 
@@ -161,9 +171,9 @@ export async function importClientsAction() {
 export async function saveQuoteAction(_prev, formData) {
   const clinicId = await clinicOf();
   const { data, error } = parseQuoteForm(formData);
-  if (error) return { error };
+  if (error) return refused('salvar atendimento', error);
   const result = await saveQuote(clinicId, Number(formData.get('id')) || null, data);
-  if (result.error) return result;
+  if (result.error) return refused('salvar atendimento', result.error);
   redirect(withMessage(`/atendimentos/${result.value}`, 'ok', 'Atendimento salvo.'));
 }
 
@@ -217,7 +227,7 @@ export async function acceptQuoteAction(token, sendId, browser) {
     acceptLanguage: h.get('accept-language'),
     browser: browser && typeof browser === 'object' ? browser : {},
   });
-  if (error) return { error };
+  if (error) return refused('aceite do orcamento', error);
   redirect(`/orcamento/${token}`);
 }
 

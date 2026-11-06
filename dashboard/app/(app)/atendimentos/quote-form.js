@@ -6,7 +6,7 @@ import { saveQuoteAction } from '../../actions';
 import { centsToInput, formatBRL, formatPhone, itemsTotal, parseCents } from '../../../lib/format';
 
 let nextKey = 0;
-const newLine = () => ({ key: nextKey++, description: '', quantity: '1', value: '' });
+const newLine = (description = '') => ({ key: nextKey++, description, quantity: '1', value: '' });
 
 function lineTotal(line) {
   const quantity = Number(line.quantity.replace(',', '.')) || 0;
@@ -14,10 +14,10 @@ function lineTotal(line) {
 }
 
 // Campos controlados: um erro de validacao nao apaga o que foi digitado
-export default function QuoteForm({ quote, clients, services, initialClient, today }) {
+export default function QuoteForm({ quote, clients, services, initialClient, initialDate, initialService, today }) {
   const [state, action, pending] = useActionState(saveQuoteAction, { error: null });
   const [clientId, setClientId] = useState(String(quote?.client_id ?? initialClient ?? ''));
-  const [serviceDate, setServiceDate] = useState(quote?.service_date ?? today);
+  const [serviceDate, setServiceDate] = useState(quote?.service_date ?? initialDate ?? today);
   const [complaint, setComplaint] = useState(quote?.complaint ?? '');
   const [notes, setNotes] = useState(quote?.notes ?? '');
 
@@ -27,7 +27,7 @@ export default function QuoteForm({ quote, clients, services, initialClient, tod
     const existing = (quote?.items ?? [])
       .filter((i) => i.send_id === null)
       .map((i) => ({ key: nextKey++, description: i.description, quantity: String(i.quantity).replace('.', ','), value: centsToInput(i.unit_cents) }));
-    return existing.length ? existing : [newLine()];
+    return existing.length ? existing : [newLine(initialService ?? '')];
   });
 
   const update = (key, field, value) => setLines((all) => all.map((l) => (l.key === key ? { ...l, [field]: value } : l)));

@@ -37,13 +37,14 @@ export default async function EditAppointmentPage({ params, searchParams }) {
               <>
                 {' · '}
                 <Link href={`/clientes/${appointment.client_id}`}>Ficha do cliente</Link>
-                {' · '}
-                <Link href={`/atendimentos/novo?cliente=${appointment.client_id}`}>Novo atendimento</Link>
               </>
             )}
           </p>
         </div>
-        <Link href={back}>← Voltar para a agenda</Link>
+        <div className="row-actions">
+          <Link href={back}>← Voltar para a agenda</Link>
+          {appointment.source !== 'block' && <Link href={`/atendimentos/novo?agendamento=${appointment.id}`} className="button">Novo atendimento</Link>}
+        </div>
       </header>
       <Flash params={await searchParams} />
       <section className="card">

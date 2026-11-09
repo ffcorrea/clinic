@@ -11,6 +11,7 @@ export default function ClientForm({ client, defaults = {} }) {
   const [state, action, pending] = useActionState(saveClientAction, { error: null });
   const [name, setName] = useState(client?.name ?? defaults.name ?? '');
   const [phone, setPhone] = useState(formatPhone(client?.phone ?? defaults.phone ?? ''));
+  const [email, setEmail] = useState(client?.email ?? '');
   const [cpf, setCpf] = useState(maskCpf(client?.cpf ?? ''));
   const [birthDate, setBirthDate] = useState(client?.birth_date ?? '');
   const [cep, setCep] = useState(client?.cep ?? '');
@@ -46,6 +47,10 @@ export default function ClientForm({ client, defaults = {} }) {
         <span className="hint">Vincula agenda, recados e o bot a este cliente</span>
       </label>
       <label>
+        E-mail
+        <input type="email" name="email" placeholder="nome@exemplo.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </label>
+      <label>
         CPF
         <input name="cpf" inputMode="numeric" placeholder="000.000.000-00" value={cpf} onChange={(e) => setCpf(maskCpf(e.target.value))} />
       </label>
@@ -67,7 +72,7 @@ export default function ClientForm({ client, defaults = {} }) {
           }}
         />
       </label>
-      <label className="span-3">
+      <label className="span-2">
         Endereço
         <input name="address" placeholder="Rua, número, bairro, cidade" value={address} onChange={(e) => setAddress(e.target.value)} />
       </label>

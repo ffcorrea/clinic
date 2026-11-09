@@ -5,7 +5,7 @@ import { isIsoDate, today, toLocal } from './time';
 // Cadastro de clientes de cada clinica (tabela clients, criada pelo bot em src/db.js).
 // O vinculo com agenda e recados e pelo telefone: phone_key ignora o nono digito e o 55.
 
-const COLUMNS = "id, name, phone, cpf, DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date, cep, address, notes, source, created_at";
+const COLUMNS = "id, name, phone, email, cpf, DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date, cep, address, notes, source, created_at";
 
 export async function listClients(clinicId) {
   const [rows] = await pool.query(`SELECT ${COLUMNS} FROM clients WHERE clinic_id = ? ORDER BY name`, [clinicId]);
@@ -106,17 +106,19 @@ export function parseClientForm(form) {
   const text = (name) => String(form.get(name) || '').trim();
   const name = text('name');
   const phone = normalizePhone(text('phone'));
+  const email = text('email').toLowerCase() || null;
   const cpf = onlyDigits(text('cpf')) || null;
   const birthDate = text('birth_date') || null;
   const cep = text('cep') || null;
 
   if (!name) return { error: 'Informe o nome do cliente.' };
   if (phone.length < 10 || phone.length > 15) return { error: 'Informe um telefone válido com DDD.' };
+  if (email && (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return { error: 'E-mail inválido. Confira o endereço.' };
   if (cpf && !isValidCpf(cpf)) return { error: 'CPF inválido. Confira os números.' };
   if (birthDate && (!isIsoDate(birthDate) || birthDate > today())) return { error: 'Data de nascimento inválida.' };
   if (cep && onlyDigits(cep).length !== 8) return { error: 'O CEP deve ter 8 dígitos.' };
 
-  return { data: { name, phone, cpf, birthDate, cep, address: text('address') || null, notes: text('notes') || null } };
+  return { data: { name, phone, email, cpf, birthDate, cep, address: text('address') || null, notes: text('notes') || null } };
 }
 
 /** Grava o cliente (id vazio = novo). Retorna { id } ou { error }. */
@@ -125,11 +127,11 @@ export async function saveClient(clinicId, id, data) {
   const twin = pickExact(await forKey(clinicId, key), data.name, id);
   if (twin) return { error: `Já existe ${twin.name} com este telefone.` };
 
-  const values = [data.name, data.phone, key, data.cpf, data.birthDate, data.cep, data.address, data.notes];
+  const values = [data.name, data.phone, key, data.email, data.cpf, data.birthDate, data.cep, data.address, data.notes];
   try {
     if (id) {
       const [result] = await pool.query(
-        `UPDATE clients SET name = ?, phone = ?, phone_key = ?, cpf = ?, birth_date = ?, cep = ?, address = ?, notes = ?,
+        `UPDATE clients SET name = ?, phone = ?, phone_key = ?, email = ?, cpf = ?, birth_date = ?, cep = ?, address = ?, notes = ?,
                 updated_at = UTC_TIMESTAMP()
           WHERE id = ? AND clinic_id = ?`,
         [...values, id, clinicId]
@@ -137,7 +139,7 @@ export async function saveClient(clinicId, id, data) {
       if (!result.affectedRows) return { error: 'Cliente não encontrado.' };
     } else {
       const [result] = await pool.query(
-        'INSERT INTO clients (name, phone, phone_key, cpf, birth_date, cep, address, notes, clinic_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO clients (name, phone, phone_key, email, cpf, birth_date, cep, address, notes, clinic_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [...values, clinicId]
       );
       id = result.insertId;

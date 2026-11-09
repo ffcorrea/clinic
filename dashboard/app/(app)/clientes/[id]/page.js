@@ -18,6 +18,7 @@ export default async function ClientPage({ params, searchParams }) {
 
   const details = [
     ['Telefone', formatPhone(client.phone)],
+    ['E-mail', client.email ? <a href={`mailto:${client.email}`}>{client.email}</a> : '—'],
     ['CPF', client.cpf ? maskCpf(client.cpf) : '—'],
     ['Nascimento', formatDate(client.birth_date)],
     ['CEP', client.cep || '—'],

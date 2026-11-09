@@ -84,6 +84,7 @@ const SCHEMA = [
     name       varchar(255) NOT NULL,
     phone      varchar(30) NOT NULL,
     phone_key  varchar(30) NOT NULL,
+    email      varchar(255),
     cpf        varchar(11),
     birth_date date,
     cep        varchar(9),
@@ -178,6 +179,9 @@ const COLUMNS = {
   appointments: {
     // Cliente da consulta (achado ou criado pelo telefone); a chave entra junto com a coluna
     client_id: 'bigint unsigned, ADD KEY appointments_client_idx (clinic_id, client_id)',
+  },
+  clients: {
+    email: 'varchar(255) AFTER phone_key',
   },
 };
 

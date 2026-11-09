@@ -8,12 +8,12 @@ const SOURCE_LABEL = { agent: 'Bot', import: 'Agenda' };
 
 export default function ClientsTable({ clients }) {
   const [search, setSearch] = useState('');
-  const visible = clients.filter((c) => matchesSearch([c.name, c.phone, c.cpf], search));
+  const visible = clients.filter((c) => matchesSearch([c.name, c.phone, c.cpf, c.email], search));
 
   return (
     <>
       <div className="search">
-        <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, telefone ou CPF…" aria-label="Buscar cliente" />
+        <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, telefone, CPF ou e-mail…" aria-label="Buscar cliente" />
         {search && <span className="muted small">{visible.length} de {clients.length}</span>}
       </div>
       {visible.length === 0 ? (

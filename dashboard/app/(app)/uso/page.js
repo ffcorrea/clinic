@@ -10,6 +10,9 @@ const PERIOD_TITLE = { day: 'Por dia', week: 'Por semana', month: 'Por mês' };
 const int = new Intl.NumberFormat('pt-BR');
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4 });
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+// Custo medio por mensagem fica em centavos ou menos: ate 4 casas para nao virar R$ 0,00
+const brlAvg = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 4 });
+const perMessage = (g) => (g.messages_in ? brlAvg.format(g.cost_brl / g.messages_in) : '—');
 const rateFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 4 });
 
 function compact(n) {
@@ -63,6 +66,7 @@ function UsageTable({ title, groups, firstColumn, maxBrl }) {
               <th className="num">Tokens saída</th>
               <th className="num">US$</th>
               <th className="num">R$</th>
+              <th className="num" title="Custo em reais dividido pelas mensagens recebidas">R$/mensagem</th>
               <th className="bar-col" aria-hidden="true"></th>
             </tr>
           </thead>
@@ -79,6 +83,7 @@ function UsageTable({ title, groups, firstColumn, maxBrl }) {
                 <td className="num">{int.format(g.completion_tokens)}</td>
                 <td className="num">{usd.format(g.cost_usd)}</td>
                 <td className="num strong">{brl.format(g.cost_brl)}</td>
+                <td className="num">{perMessage(g)}</td>
                 <td className="bar-col">
                   <div className="bar" style={{ width: `${maxBrl ? (g.cost_brl / maxBrl) * 100 : 0}%` }} />
                 </td>
@@ -114,7 +119,6 @@ export default async function Page({ searchParams }) {
   const total = sumRows(rows);
   const byClinic = groupBy(rows, 'clinic_id', 'clinic_name').sort((a, b) => b.cost_brl - a.cost_brl);
   const byPeriod = groupBy(rows, 'period', 'period').map((g) => ({ ...g, label: periodLabel(g.key, filters.granularity) }));
-  const avgBrl = total.messages_out ? total.cost_brl / total.messages_out : 0;
 
   return (
     <main>
@@ -171,7 +175,12 @@ export default async function Page({ searchParams }) {
         <Kpi label="Respostas enviadas" value={int.format(total.messages_out)} hint={total.errors ? `${int.format(total.errors)} com erro` : 'sem erros'} />
         <Kpi label="Tokens" value={compact(total.prompt_tokens + total.completion_tokens)} hint={`${compact(total.prompt_tokens)} entrada · ${compact(total.completion_tokens)} saída`} />
         <Kpi label="Custo em dólar" value={usd.format(total.cost_usd)} />
-        <Kpi label="Custo em reais" value={brl.format(total.cost_brl)} hint={`${brl.format(avgBrl)} por resposta`} />
+        <Kpi label="Custo em reais" value={brl.format(total.cost_brl)} />
+        <Kpi
+          label="Média por mensagem"
+          value={perMessage(total)}
+          hint={total.messages_out ? `${brlAvg.format(total.cost_brl / total.messages_out)} por resposta` : 'custo ÷ mensagens recebidas'}
+        />
       </section>
 
       {rows.length === 0 ? (
@@ -184,7 +193,7 @@ export default async function Page({ searchParams }) {
       )}
 
       <p className="muted footnote">
-        R$ calculado com a cotação do dólar no momento de cada atendimento. Semanas começam na segunda-feira; horário de Brasília.
+        Média por mensagem = custo em reais ÷ mensagens recebidas. R$ calculado com a cotação do dólar no momento de cada atendimento. Semanas começam na segunda-feira; horário de Brasília.
       </p>
     </main>
   );
